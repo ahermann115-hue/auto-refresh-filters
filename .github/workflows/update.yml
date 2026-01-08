@@ -2,22 +2,20 @@ name: Weekly Filter Update
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Каждое воскресенье в 00:00 UTC
-  workflow_dispatch:      # Разрешить ручной запуск
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
     
     steps:
-      # ШАГ 1: Checkout с ВАШИМ токеном (это ключевое!)
       - name: 📥 Checkout with PAT
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.AUTO_UPDATE_TOKEN }}  # ТОЛЬКО ваш токен
+          token: ${{ secrets.AUTO_UPDATE_TOKEN }}
           ref: main
 
-      # ШАГ 2: Подготовка
       - name: 🔧 Setup
         run: |
           chmod +x update.sh
@@ -25,12 +23,10 @@ jobs:
           echo "Рабочая директория: $(pwd)"
           ls -la
 
-      # ШАГ 3: Запуск скрипта
       - name: 🚀 Run update script
         run: ./update.sh
 
-      # ШАГ 4: Коммит и пуш с ТЕМ ЖЕ токеном
-        - name: 📝 Commit and Push BLACKLIST ONLY
+      - name: 📝 Commit and Push BLACKLIST ONLY
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
