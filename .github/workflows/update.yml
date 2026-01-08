@@ -2,41 +2,51 @@ name: Weekly Filter Update
 
 on:
   schedule:
-    - cron: '0 3 * * 0'  # Воскресенье 3:00 UTC
-  workflow_dispatch:      # Ручной запуск
+    - cron: '0 0 * * 0'  # Каждое воскресенье в 00:00 UTC
+  workflow_dispatch:      # Разрешить ручной запуск
 
 jobs:
-  update-filters:
+  update:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
-      - name: Make script executable
-        run: chmod +x update.sh
-        
-      - name: Run update script
+      # ШАГ 1: Checkout с ВАШИМ токеном (это ключевое!)
+      - name: 📥 Checkout with PAT
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AUTO_UPDATE_TOKEN }}  # ТОЛЬКО ваш токен
+          ref: main
+
+      # ШАГ 2: Подготовка
+      - name: 🔧 Setup
+        run: |
+          chmod +x update.sh
+          echo "Токен установлен: ${{ secrets.AUTO_UPDATE_TOKEN != '' }}"
+          echo "Рабочая директория: $(pwd)"
+          ls -la
+
+      # ШАГ 3: Запуск скрипта
+      - name: 🚀 Run update script
         run: ./update.sh
-        
-      - name: 📝 Commit and push changes
+
+      # ШАГ 4: Коммит и пуш с ТЕМ ЖЕ токеном
+      - name: 📝 Commit and Push
         env:
-          # Используем созданный вами секрет для авторизации
-          PAT_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}  # Используем тот же токен
         run: |
           # Настраиваем git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
           
-          # Меняем URL репозитория для использования токена
-          # Это позволяет обойти ошибку 403
-          git remote set-url origin "https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git"
-          
-          # Проверяем есть ли изменения
-          if git diff --quiet; then
-            echo "ℹ️ Нет изменений для коммита"
-          else
+          # Проверяем изменения
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Есть изменения, коммитим..."
             git add blacklist.txt
-            git commit -m "🤖 Автообновление $(date +'%Y-%m-%d')"
-            git push origin HEAD:main
+            git commit -m "🤖 Автообновление $(date +'%Y-%m-%d %H:%M:%S')"
+            
+            # Пушим используя токен из переменной окружения
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
+            echo "✅ Успешно запушили!"
+          else
+            echo "ℹ️ Нет изменений для коммита"
           fi
