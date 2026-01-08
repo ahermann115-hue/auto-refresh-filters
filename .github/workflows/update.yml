@@ -1,0 +1,35 @@
+name: Weekly Filter Update
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Воскресенье 3:00 UTC
+  workflow_dispatch:      # Ручной запуск
+
+jobs:
+  update-filters:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Make script executable
+        run: chmod +x update.sh
+        
+      - name: Run update script
+        run: ./update.sh
+        
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # Проверяем есть ли изменения
+          if git status --porcelain | grep -q "blacklist.txt\|whitelist.txt"; then
+            git add blacklist.txt whitelist.txt
+            git commit -m "🤖 Автообновление $(date +'%Y-%m-%d')"
+            git push origin main
+            echo "✅ Изменения запушены"
+          else
+            echo "⚠️ Нет изменений"
+          fi
