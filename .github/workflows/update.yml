@@ -30,23 +30,26 @@ jobs:
         run: ./update.sh
 
       # ШАГ 4: Коммит и пуш с ТЕМ ЖЕ токеном
-      - name: 📝 Commit and Push
+        - name: 📝 Commit and Push BLACKLIST ONLY
         env:
-          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}  # Используем тот же токен
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           # Настраиваем git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          # Проверяем изменения
-          if [[ -n "$(git status --porcelain)" ]]; then
-            echo "Есть изменения, коммитим..."
-            git add blacklist.txt
-            git commit -m "🤖 Автообновление $(date +'%Y-%m-%d %H:%M:%S')"
-            
-            # Пушим используя токен из переменной окружения
-            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
-            echo "✅ Успешно запушили!"
+          # Сбрасываем ВСЕ изменения, кроме blacklist.txt
+          git checkout -- update.sh whitelist.txt
+          
+          # Проверяем, изменился ли blacklist.txt
+          if git diff --quiet blacklist.txt; then
+            echo "ℹ️ Blacklist не изменился, пропускаем коммит"
           else
-            echo "ℹ️ Нет изменений для коммита"
+            echo "🔄 Blacklist изменился, коммитим..."
+            git add blacklist.txt
+            git commit -m "🤖 Автообновление blacklist $(date +'%Y-%m-%d %H:%M:%S')"
+            
+            # Пушим только blacklist
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
+            echo "✅ Успешно запушили blacklist!"
           fi
