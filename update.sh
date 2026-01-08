@@ -5,7 +5,7 @@ echo "=== Генерация blacklist ==="
 
 # 1. Скачиваем OISD
 echo "📥 Загружаем OISD..."
-curl -s "https://nsfw.oisd.nl " -o oisd_raw.txt
+curl -s "https://nsfw.oisd.nl" -o oisd_raw.txt
 
 # 2. Очищаем AdBlock формат
 echo "🧹 Очищаем формат..."
