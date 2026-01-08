@@ -18,8 +18,9 @@ grep -v '^$' oisd_clean.txt | grep -v '^!' | grep -v '^#' | sort | uniq > oisd_d
 
 # 4. Whitelist (добавь свои сайты)
 echo "📝 Добавляем whitelist..."
-cat > whitelist.txt << EOF
 
+cat > whitelist.txt << EOF
+autorefresh.se
 # Добавь сюда свои сайты которые не нужно блокировать
 EOF
 
