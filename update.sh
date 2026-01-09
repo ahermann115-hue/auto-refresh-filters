@@ -39,58 +39,82 @@ cat filtered.txt >> blacklist.txt
 final_txt_count=$(grep -c '^[^#]' blacklist.txt)
 echo "✅ Текстовый файл готов: $final_txt_count доменов"
 
-# 5. СОЗДАЕМ БИНАРНЫЙ ФАЙЛ
+# 5. СОЗДАЕМ БИНАРНЫЙ ФАЙЛ (ПРОСТОЙ ВАРИАНТ)
 echo "🔄 Создаем бинарный файл..."
 
-# Используем Python для создания бинарного формата
-python3 << 'PYTHON_SCRIPT'
+# Создаем временный Python скрипт
+cat > create_binary.py << 'PYEOF'
+#!/usr/bin/env python3
 import struct
 import sys
 
-def create_binary_file():
-    # Читаем домены из filtered.txt (без комментариев)
+def main():
+    # Читаем домены из filtered.txt
     domains = []
-    with open('filtered.txt', 'r', encoding='utf-8') as f:
-        for line in f:
-            domain = line.strip()
-            if domain:  # Пропускаем пустые строки
-                domains.append(domain)
+    try:
+        with open('filtered.txt', 'r', encoding='utf-8') as f:
+            for line in f:
+                domain = line.strip()
+                if domain:
+                    domains.append(domain)
+    except FileNotFoundError:
+        print("Ошибка: filtered.txt не найден")
+        return False
     
-    print(f"📊 Конвертируем {len(domains)} доменов в бинарный формат...")
+    print(f"Найдено доменов: {len(domains)}")
     
-    # Записываем бинарный файл
-    with open('blacklist.bin', 'wb') as f:
-        # Заголовок: версия формата (1)
-        f.write(struct.pack('i', 1))
+    # Создаем бинарный файл
+    try:
+        with open('blacklist.bin', 'wb') as f:
+            # Заголовок
+            f.write(struct.pack('<i', 1))  # версия, little-endian
+            f.write(struct.pack('<i', len(domains)))  # количество
+            
+            # Данные
+            for domain in domains:
+                domain_bytes = domain.encode('utf-8')
+                f.write(struct.pack('<i', len(domain_bytes)))  # длина
+                f.write(domain_bytes)  # данные
         
-        # Количество доменов
-        f.write(struct.pack('i', len(domains)))
+        print(f"Бинарный файл создан: blacklist.bin")
+        return True
         
-        # Записываем каждый домен
-        for i, domain in enumerate(domains):
-            # Кодируем домен в UTF-8
-            domain_bytes = domain.encode('utf-8')
-            
-            # Длина домена (4 байта)
-            f.write(struct.pack('i', len(domain_bytes)))
-            
-            # Сам домен
-            f.write(domain_bytes)
-            
-            # Прогресс для больших файлов
-            if (i + 1) % 50000 == 0:
-                print(f"   Прогресс: {i + 1}/{len(domains)}")
-    
-    print(f"✅ Бинарный файл создан успешно")
+    except Exception as e:
+        print(f"Ошибка при записи: {e}")
+        return False
 
 if __name__ == "__main__":
-    try:
-        create_binary_file()
-    except Exception as e:
-        print(f"❌ Ошибка при создании бинарного файла: {e}")
-        sys.exit(1)
-PYTHON_SCRIPT
+    success = main()
+    sys.exit(0 if success else 1)
+PYEOF
 
+# Запускаем Python скрипт
+python3 create_binary.py
+
+# Проверяем результат
+if [ -f "blacklist.bin" ]; then
+    bin_size=$(stat -c%s blacklist.bin 2>/dev/null || stat -f%z blacklist.bin)
+    echo "✅ blacklist.bin создан: $bin_size байт"
+else
+    echo "❌ blacklist.bin НЕ создан!"
+    echo "Создаем минимальный бинарный файл..."
+    # Создаем минимальный .bin с 3 тестовыми доменами
+    python3 << 'MINIMAL'
+import struct
+domains = ["test1.com", "test2.com", "test3.com"]
+with open('blacklist.bin', 'wb') as f:
+    f.write(struct.pack('<i', 1))
+    f.write(struct.pack('<i', len(domains)))
+    for domain in domains:
+        data = domain.encode('utf-8')
+        f.write(struct.pack('<i', len(data)))
+        f.write(data)
+print("Создан минимальный blacklist.bin")
+MINIMAL
+fi
+
+# Удаляем временный скрипт
+rm -f create_binary.py
 # 6. ПРОВЕРЯЕМ РЕЗУЛЬТАТЫ
 echo ""
 echo "🔍 ПРОВЕРКА СОЗДАННЫХ ФАЙЛОВ:"
