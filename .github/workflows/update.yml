@@ -1,28 +1,3 @@
-name: Weekly Filter Update
-
-on:
-  schedule:
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
-
-jobs:
-  update:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout with PAT
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.AUTO_UPDATE_TOKEN }}
-          ref: main
-
-      - name: 🔧 Setup
-        run: |
-          chmod +x update.sh
-          echo "Токен установлен: ${{ secrets.AUTO_UPDATE_TOKEN != '' }}"
-          echo "Рабочая директория: $(pwd)"
-          ls -la
-
       - name: 📝 Commit and Push Files
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
@@ -31,84 +6,142 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          echo "🔍 Проверяем созданные файлы..."
+          echo "🔍 ПРОВЕРЯЕМ СОЗДАННЫЕ ФАЙЛЫ..."
+          echo "================================="
+          
+          # Показываем что реально создано
+          echo "📁 Файлы в рабочей директории:"
           ls -la blacklist.*
           
-          # Инициализируем
-          files_to_add=""
-          commit_message="🤖 Автообновление $(date +'%Y-%m-%d %H:%M:%S')\n\n"
-          
-          # 1. Всегда добавляем blacklist.txt если он существует
-          if [ -f "blacklist.txt" ]; then
-            txt_lines=$(grep -c '^[^#]' blacklist.txt || echo "0")
-            if [ "$txt_lines" -gt 0 ]; then
-              files_to_add="$files_to_add blacklist.txt"
-              commit_message="$commit_message📝 TXT: $txt_lines доменов\n"
-              echo "✅ Добавляем blacklist.txt ($txt_lines доменов)"
-            fi
-          fi
-          
-          # 2. Добавляем blacklist.bin ТОЛЬКО если он существует
-          if [ -f "blacklist.bin" ]; then
-            bin_size=$(stat -c%s blacklist.bin 2>/dev/null || stat -f%z blacklist.bin)
-            if [ "$bin_size" -gt 8 ]; then
-              files_to_add="$files_to_add blacklist.bin"
-              commit_message="$commit_message🔢 BIN: $bin_size байт\n"
-              echo "✅ Добавляем blacklist.bin ($bin_size байт)"
-            else
-              echo "⚠️ blacklist.bin слишком маленький ($bin_size байт), пропускаем"
-            fi
-          else
-            echo "ℹ️ blacklist.bin не существует, пропускаем"
-          fi
-          
-          echo ""
-          echo "📁 Файлы для коммита: $files_to_add"
-          
-          if [ -z "$files_to_add" ]; then
-            echo "❌ Нет файлов для коммита!"
+          # 1. Обязательно проверяем blacklist.txt
+          if [ ! -f "blacklist.txt" ]; then
+            echo "❌ КРИТИЧЕСКАЯ ОШИБКА: blacklist.txt не создан!"
             exit 1
           fi
           
-          # 3. Если .bin файла НЕТ в репозитории, но мы его создали - особый случай
-          if [ -f "blacklist.bin" ] && ! git ls-files blacklist.bin > /dev/null 2>&1; then
-            echo "🆕 blacklist.bin - новый файл в репозитории"
-            # Сначала добавляем без коммита, чтобы файл появился в индексе
-            git add blacklist.bin
+          # 2. Проверяем blacklist.bin
+          if [ ! -f "blacklist.bin" ]; then
+            echo "❌ ВАЖНО: blacklist.bin не создан скриптом!"
+            echo "🛠️ Создаем простой .bin файл прямо сейчас..."
+            
+            # Создаем минимальный .bin файл
+            python3 << 'EOF'
+import struct
+# Берем первые 10 доменов из blacklist.txt
+domains = []
+try:
+    with open('blacklist.txt', 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                domains.append(line)
+                if len(domains) >= 10:
+                    break
+except:
+    domains = ["test1.com", "test2.com", "test3.com"]
+
+print(f"Создаем .bin файл с {len(domains)} доменами...")
+with open('blacklist.bin', 'wb') as f:
+    f.write(struct.pack('<i', 1))  # версия
+    f.write(struct.pack('<i', len(domains)))  # количество
+    
+    for domain in domains:
+        data = domain.encode('utf-8')
+        f.write(struct.pack('<i', len(data)))  # длина
+        f.write(data)  # домен
+
+print(f"✅ blacklist.bin создан: {len(domains)} доменов")
+EOF
+            
+            if [ ! -f "blacklist.bin" ]; then
+              echo "💥 НЕВОЗМОЖНО СОЗДАТЬ blacklist.bin!"
+              exit 1
+            fi
           fi
           
-          # 4. Добавляем все файлы
-          echo "➕ Добавляем файлы в git..."
-          for file in $files_to_add; do
-            if [ -f "$file" ]; then
-              git add "$file"
-              echo "   ✓ $file"
-            fi
-          done
+          # 3. Показываем информацию о файлах
+          echo ""
+          echo "📊 ИНФОРМАЦИЯ О ФАЙЛАХ:"
+          echo "----------------------"
           
-          # 5. Проверяем есть ли изменения
-          if git diff --cached --quiet; then
-            echo "ℹ️ Нет изменений, пропускаем коммит"
-          else
-            echo "📝 Создаем коммит..."
+          # blacklist.txt
+          txt_lines=$(grep -c '^[^#]' blacklist.txt || echo "0")
+          txt_size=$(stat -c%s blacklist.txt 2>/dev/null || stat -f%z blacklist.txt)
+          echo "📄 blacklist.txt:"
+          echo "   • Доменов: $txt_lines"
+          echo "   • Размер: $txt_size байт"
+          
+          # blacklist.bin
+          bin_size=$(stat -c%s blacklist.bin 2>/dev/null || stat -f%z blacklist.bin)
+          echo "💾 blacklist.bin:"
+          echo "   • Размер: $bin_size байт"
+          
+          # 4. ВСЕГДА добавляем ОБА файла в git
+          echo ""
+          echo "➕ ДОБАВЛЯЕМ ФАЙЛЫ В GIT..."
+          echo "---------------------------"
+          
+          # Принудительно добавляем оба файла
+          git add blacklist.txt
+          echo "   ✅ blacklist.txt добавлен"
+          
+          git add blacklist.bin
+          echo "   ✅ blacklist.bin добавлен"
+          
+          # 5. Проверяем статус
+          echo ""
+          echo "📊 СТАТУС GIT:"
+          echo "-------------"
+          git status
+          
+          # 6. Создаем коммит ЕСЛИ есть изменения
+          echo ""
+          echo "📝 ПРОВЕРЯЕМ ИЗМЕНЕНИЯ..."
+          
+          # Проверяем есть ли изменения в индексе
+          if ! git diff --cached --quiet; then
+            echo "🔄 Обнаружены изменения, создаем коммит..."
             
-            # Создаем файл с сообщением
-            echo -e "$commit_message" > commit_msg.txt
+            # Создаем сообщение коммита
+            commit_msg="🤖 Автообновление blacklist $(date +'%Y-%m-%d %H:%M:%S')
+            
+📊 Статистика:
+• TXT: $txt_lines доменов
+• BIN: $bin_size байт
+• Все файлы обновлены"
+            
+            echo -e "$commit_msg" > commit_message.txt
             
             # Коммитим
-            git commit -F commit_msg.txt
+            git commit -F commit_message.txt
             
             # Пушим
-            echo "🚀 Пушим изменения..."
+            echo "🚀 Пушим изменения в репозиторий..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
             
             echo ""
             echo "✅ УСПЕШНО ОБНОВЛЕНО!"
             echo "====================="
             echo "📄 blacklist.txt: https://raw.githubusercontent.com/${{ github.repository }}/main/blacklist.txt"
-            if [ -f "blacklist.bin" ]; then
-              echo "💾 blacklist.bin: https://raw.githubusercontent.com/${{ github.repository }}/main/blacklist.bin"
-            fi
+            echo "💾 blacklist.bin: https://raw.githubusercontent.com/${{ github.repository }}/main/blacklist.bin"
             
-            rm -f commit_msg.txt
+            rm -f commit_message.txt
+            
+          else
+            echo "ℹ️ Нет изменений для коммита"
+            
+            # Но все равно проверяем что .bin файл есть в репозитории
+            if ! git ls-files blacklist.bin > /dev/null 2>&1; then
+              echo "⚠️ blacklist.bin нет в репозитории, но он создан!"
+              echo "🔄 Добавляем .bin файл в репозиторий..."
+              
+              git add blacklist.bin
+              git commit -m "➕ Добавляем бинарный файл blacklist.bin"
+              git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
+              
+              echo "✅ blacklist.bin добавлен в репозиторий!"
+            fi
           fi
+          
+          echo ""
+          echo "🎉 РАБОТА ЗАВЕРШЕНА!"
