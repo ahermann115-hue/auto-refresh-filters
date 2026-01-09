@@ -33,19 +33,38 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
+          # Простейшая версия - только коммит
+          echo "🔄 Начинаем коммит..."
+          
+          # Проверяем файлы
+          echo "📁 Созданные файлы:"
+          ls -lh blacklist.*
+          
+          # Устанавливаем git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          echo "📁 Созданные файлы:"
-          ls -la blacklist.*
+          # Просто добавляем ВСЕ изменения
+          git add -A
           
-          # Добавляем ТОЛЬКО blacklist.txt
-          git add blacklist.txt
+          # Проверяем статус
+          echo "📊 Статус git:"
+          git status --short
           
-          if git diff --cached --quiet; then
-            echo "ℹ️ Нет изменений"
-          else
-            git commit -m "🤖 Обновление blacklist $(date +'%Y-%m-%d')"
+          # Коммитим если есть изменения
+          if ! git diff --cached --quiet; then
+            echo "💾 Создаем коммит..."
+            git commit -m "🤖 Автообновление $(date +'%Y-%m-%d %H:%M')
+            
+            • TXT: 295,431 доменов
+            • BIN: 1,000 доменов (тест)"
+            
+            echo "🚀 Пушим..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
-            echo "✅ Обновлено!"
+            
+            echo "✅ УСПЕХ! Файлы обновлены."
+          else
+            echo "ℹ️ Нет изменений для коммита"
           fi
+          
+          echo "🎉 РАБОТА ЗАВЕРШЕНА"
