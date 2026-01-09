@@ -1,3 +1,34 @@
+name: Weekly Filter Update
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Каждое воскресенье в полночь
+  workflow_dispatch:      # Ручной запуск
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AUTO_UPDATE_TOKEN }}
+          ref: main
+
+      - name: 🐍 Setup Python
+        run: |
+          python3 --version
+          echo "Python готов"
+
+      - name: 🔧 Setup permissions
+        run: |
+          chmod +x update.sh
+          echo "Токен доступен: ${{ secrets.AUTO_UPDATE_TOKEN != '' }}"
+
+      - name: 🚀 Run update script
+        run: ./update.sh
+
       - name: 📝 Commit and Push Files
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
