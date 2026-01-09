@@ -80,6 +80,29 @@ print(f"   blacklist.bin: {bin_size:,} байт")
 print(f"   Разница: {bin_size - txt_size:,} байт (+{(bin_size/txt_size*100)-100:.1f}%)")
 EOF
 
+# В конце update.sh добавьте:
+echo "🔍 Проверка созданных файлов..."
+ls -la blacklist.*
+echo "blacklist.txt строк: $(wc -l < blacklist.txt)"
+if [ -f "blacklist.bin" ]; then
+    echo "blacklist.bin размер: $(stat -c%s blacklist.bin 2>/dev/null || stat -f%z blacklist.bin) байт"
+else
+    echo "❌ blacklist.bin НЕ создан!"
+    # Создаем простой бинарный файл для теста
+    python3 << 'EOF'
+import struct
+with open('test.bin', 'wb') as f:
+    f.write(struct.pack('i', 1))
+    f.write(struct.pack('i', 3))
+    for domain in ['test1.com', 'test2.com', 'test3.com']:
+        data = domain.encode('utf-8')
+        f.write(struct.pack('i', len(data)))
+        f.write(data)
+print("Создан тестовый .bin файл")
+EOF
+    mv test.bin blacklist.bin
+fi
+
 # Очистка
 rm -f raw.txt domains.txt whitelist.txt header.txt
 echo "=== ОБА ФАЙЛА СОЗДАНЫ ==="
