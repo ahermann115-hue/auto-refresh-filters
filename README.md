@@ -1,2 +1,11 @@
-# auto-refresh-filters
-Filters to block inappropriate content
+# AutoRefresh Filters
+
+Этот репозиторий содержит фильтры для блокировки нежелательного контента в приложении AutoRefresh.
+
+## Файлы
+
+### Основные файлы:
+- `bloom_filter.bin` - **ОСНОВНОЙ ФИЛЬТР** в формате Bloom-filter
+- `blacklist.txt` - Текстовый список доменов (для справки)
+
+### Формат bloom_filter.bin:
