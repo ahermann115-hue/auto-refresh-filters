@@ -2,7 +2,7 @@ name: Weekly Filter Update
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Каждое воскресенье в полночь
+    - cron: '0 0 * * *'  # Каждое воскресенье в полночь
   workflow_dispatch:      # Ручной запуск
 
 jobs:
