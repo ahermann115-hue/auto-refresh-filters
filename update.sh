@@ -2,6 +2,7 @@
 set -e
 
 echo "=== ГЕНЕРАЦИЯ BLOOM-FILTER ДЛЯ AUTOREFRESH ==="
+echo "📝 Источник данных: StevenBlack/hosts (fakenews-gambling-porn-social)"
 echo "🕐 Время: $(date)"
 echo "📁 Рабочая директория: $(pwd)"
 echo ""
