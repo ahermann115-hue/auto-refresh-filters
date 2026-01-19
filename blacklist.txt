@@ -1,7 +1,7 @@
 # =========================================
 # AUTOREFRESH BLACKLIST (ОБЪЕДИНЕННЫЙ СПИСОК)
-# Создано: Mon Jan 19 12:58:37 UTC 2026
-# Доменов: 158067
+# Создано: Mon Jan 19 13:09:08 UTC 2026
+# Доменов: 158060
 # Формат: Bloom-filter .bin
 # =========================================
 
@@ -76408,7 +76408,6 @@ pge-ebok-elektroniczne-66201994811-pl.us.stackstaging.com
 pge.unityads.unity3d.com
 pggsklep.com
 pgl.example.com
-pgl.example0101
 pgmediaserve.com
 pgpartner.com
 pgpl.g5e.com
@@ -125422,7 +125421,6 @@ www.forgepathanalytics.mom
 www.forgeqlyden.com
 www.forgivemefather.com
 www.forgotten-angels.de
-www.forgotten_dark_angel.tripod.com
 www.forhertravel.com
 www.forhertube.com
 www.forifotox.com
@@ -145961,7 +145959,6 @@ www.toplistwebcams.com
 www.toplusozlesme.net
 www.topmatureporn.com
 www.topmeds10.com
-www.topmodel_virginie.cmonbook.com
 www.topmomvideos.com
 www.topmonsterhentai.com
 www.topmovies.pl
@@ -151667,7 +151664,6 @@ www.zexeu.net
 www.zeylorpacte.com
 www.zeytindiyari.com
 www.zeytinofficial.com
-www.zgarniij_vouchher.skroc.pl
 www.zgarnij-nagrode.com
 www.zgktapdznl.info
 www.zhall.shop
@@ -153355,18 +153351,15 @@ xn--80aayhhb9f.com
 xn--80acl0abm.com
 xn--80adc8beafyeu.com
 xn--80adisc4bc1a.com
-xn--80afden1bnch4a.xn--p1ai
 xn--80apgojn8e.click
 xn--80aqfgb.com
 xn--8uqt3cty5bwwbwwh.xyz
-xn--90abegbttpjb3bzb2j.xn--p1ai
 xn--911-1klyfn3i1b2j7c.com
 xn--911-pklyha2e4frf9c.com
 xn--94qy09a6nz5ui.com
 xn--aa-wl5eb.com
 xn--adspace-kvg.ero-advertising.com
 xn--amatr-szex-24b.hu
-xn--b1afiqif6c.xn--p1ai
 xn--blckchain-17c.com
 xn--d1aqecbkek.com
 xn--dctgdask-upb.com
