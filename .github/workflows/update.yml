@@ -1,4 +1,4 @@
-name: Weekly Filter Update
+name: Daily Filter Update
 
 on:
   schedule:
@@ -29,18 +29,6 @@ jobs:
       - name: 🚀 Run update script
         run: ./update.sh
 
-              # ДОБАВЬ ЭТО ПОСЛЕ ВСЕХ ШАГОВ:
-      - name: 🔔 Notify on failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🚨 Ошибка обновления фильтра',
-              body: 'Проверь скрипт update.sh! Дата: ' + new Date().toISOString()
-            })
 
       - name: 📝 Commit and Push Files
         env:
