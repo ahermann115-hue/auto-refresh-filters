@@ -1,22 +1,3 @@
-# =========================================
-# AUTOREFRESH BLACKLIST (ОБЪЕДИНЕННЫЙ СПИСОК)
-# Создано: Mon Jan 19 13:09:08 UTC 2026
-# Доменов: 158060
-# Формат: Bloom-filter .bin
-# =========================================
-
-# ИСТОЧНИКИ:
-# 1. StevenBlack/hosts (fakenews-gambling-porn)
-#    Без социальных сетей: порно, азартные игры, фейк-новости
-#    URL: https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts
-
-# 2. StevenBlack/hosts (базовый список)
-#    Включает Malware, рекламу, трекеры
-#    URL: https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-
-# =========================================
-
-# Список доменов (для информации):
 0.0.0.0.creative.hpyrdr.com
 0.0.0.0.hpyrdr.com
 0.nextyourcontent.com
@@ -38760,6 +38741,7 @@ forgepathanalytics.mom
 forgeqlyden.com
 forgivemefather.com
 forgotten-angels.de
+forgotten_dark_angel.tripod.com
 forhertravel.com
 forhertube.com
 forifotox.com
@@ -76506,6 +76488,7 @@ phicatube.net
 phikunprogramming.com
 phil-flash.com
 philacct.com
+philadelphia_cbslocal.us.intellitxt.com
 philippinesredcat.com
 philippschoch.ch
 philips.112.2o7.net
@@ -82188,6 +82171,7 @@ pornspace.es
 pornspan.com
 pornspankbang.ru
 pornspare.com
+pornspare_com.imedia-stream.com
 pornspark.com
 pornsplit.com
 pornsplus.com
@@ -102525,6 +102509,7 @@ toplivegirls.com
 toplusozlesme.net
 topmaturexxx.com
 topmeds10.com
+topmodel_virginie.cmonbook.com
 topmomsporn.com
 topmomvideos.com
 topmonsterhentai.com
@@ -125421,6 +125406,7 @@ www.forgepathanalytics.mom
 www.forgeqlyden.com
 www.forgivemefather.com
 www.forgotten-angels.de
+www.forgotten_dark_angel.tripod.com
 www.forhertravel.com
 www.forhertube.com
 www.forifotox.com
@@ -145959,6 +145945,7 @@ www.toplistwebcams.com
 www.toplusozlesme.net
 www.topmatureporn.com
 www.topmeds10.com
+www.topmodel_virginie.cmonbook.com
 www.topmomvideos.com
 www.topmonsterhentai.com
 www.topmovies.pl
@@ -151664,6 +151651,7 @@ www.zexeu.net
 www.zeylorpacte.com
 www.zeytindiyari.com
 www.zeytinofficial.com
+www.zgarniij_vouchher.skroc.pl
 www.zgarnij-nagrode.com
 www.zgktapdznl.info
 www.zhall.shop
@@ -157599,6 +157587,7 @@ zf1.quebec-bin.com
 zf1.zeroredirect11.com
 zfm.oewabox.at
 zg.booru.org
+zgarniij_vouchher.skroc.pl
 zgarnij-nagrode.com
 zgktapdznl.info
 zgranarodzina.eu
