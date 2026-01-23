@@ -2,8 +2,8 @@ name: Daily Filter Update
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Ежедневно в полночь (было написано "воскресенье", но cron - ежедневно)
-  workflow_dispatch:      # Ручной запуск
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+  workflow_dispatch:      # Manual trigger
 
 jobs:
   update:
@@ -16,6 +16,14 @@ jobs:
           token: ${{ secrets.AUTO_UPDATE_TOKEN }}
           ref: main
 
+      - name: 🔐 Check token
+        run: |
+          if [ -z "${{ secrets.AUTO_UPDATE_TOKEN }}" ]; then
+            echo "ERROR: AUTO_UPDATE_TOKEN not set!"
+            exit 1
+          fi
+          echo "Token is available"
+
       - name: 🐍 Setup Python
         run: |
           python3 --version
@@ -24,71 +32,54 @@ jobs:
       - name: 🔧 Setup permissions
         run: |
           chmod +x update.sh
-          echo "Скрипт готов к выполнению"
 
       - name: 🚀 Run update script
         id: run_update
         run: |
-          echo "Запуск скрипта update.sh..."
           ./update.sh
           
-          # Сохраняем информацию о размере файлов для коммита
           if [ -f "blacklist.txt" ]; then
             DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.')
-            echo "domains_count=${DOMAIN_COUNT}" >> $GITHUB_OUTPUT
+            echo "DOMAIN_COUNT=${DOMAIN_COUNT}" >> $GITHUB_OUTPUT
           fi
           
           if [ -f "bloom_filter.bin" ]; then
             BLOOM_SIZE=$(stat -c%s bloom_filter.bin)
             BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
-            echo "bloom_size_kb=${BLOOM_SIZE_KB}" >> $GITHUB_OUTPUT
+            echo "BLOOM_SIZE_KB=${BLOOM_SIZE_KB}" >> $GITHUB_OUTPUT
           fi
 
       - name: 📝 Commit and Push Files
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
-          echo "🔄 Начинаем коммит..."
+          echo "Starting commit process..."
           
-          # Проверяем файлы
-          echo "📁 Созданные файлы:"
-          ls -lh bloom_filter.bin blacklist.txt || true
-          
-          # Настраиваем git
+          # Setup git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          # Добавляем файлы
-          git add bloom_filter.bin blacklist.txt README.md
+          # Add files
+          git add bloom_filter.bin blacklist.txt README.md 2>/dev/null || true
           
-          echo "📊 Статус git:"
-          git status --short
-          
-          # Коммитим если есть изменения
+          # Commit if changes
           if ! git diff --cached --quiet; then
-            echo "💾 Создаем коммит..."
+            echo "Creating commit..."
             
-            # Получаем реальные данные из скрипта
+            # Get data
             DOMAIN_COUNT=${DOMAIN_COUNT:-$(grep -v '^#' blacklist.txt | grep -c '\.' 2>/dev/null || echo "0")}
             BLOOM_SIZE_KB=${BLOOM_SIZE_KB:-$(($(stat -c%s bloom_filter.bin 2>/dev/null || echo 0) / 1024))}
             DATE=$(date +'%Y-%m-%d')
             
-            git commit -m "🤖 Автообновление фильтра ${DATE}
+            # SIMPLE ONE-LINE COMMIT MESSAGE - no line breaks!
+            git commit -m "Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
             
-• Доменов в blacklist.txt: ${DOMAIN_COUNT}
-• Размер bloom_filter.bin: ${BLOOM_SIZE_KB} KB
-• Обновление: StevenBlack + BlockList Project
-            
-📊 Источники:
-- StevenBlack/hosts (fakenews-gambling-porn + malware)
-- BlockList Project (drugs + weapons + violence)"
-            
-            echo "🚀 Пушим изменения..."
+            echo "Pushing changes..."
             git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
             
-            echo "✅ УСПЕХ! Файлы обновлены."
+            echo "SUCCESS! Files updated."
           else
-            echo "ℹ️ Нет изменений для коммита"
+            echo "No changes to commit"
           fi
           
-          echo "🎉 РАБОТА ЗАВЕРШЕНА"
+          echo "Workflow completed"
