@@ -245,37 +245,25 @@ print("=== СОЗДАНИЕ BLOOM-FILTER ===")
 print("📖 Чтение доменов из filtered_clean.txt...")
 with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
     domains = []
-    for line in f:
-        domain = line.strip()
-        if domain:  # Только непустые строки
-            domains.append(domain)
-    
-print(f"📊 Всего доменов: {len(domains):,}")
-
-# 2. Проверяем что нет комментариев
-test_line = domains[0] if domains else ""
-if test_line.startswith("#"):
-    print("❌ ОШИБКА: В файле есть комментарии!")
-    print(f"Первая строка: {test_line}")
-    sys.exit(1)
-
-# ... остальной код без изменений ...
-
-# В конце читаем из filtered_clean.txt
-print("📖 Чтение доменов...")
-with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
-    domains = []
     line_count = 0
     for line in f:
         line_count += 1
         domain = line.strip()
-        if domain and not domain.startswith('#'):
+        if domain and not domain.startswith('#'):  # Пропускаем комментарии и пустые строки
             domains.append(domain)
     
-print(f"📊 Обработано строк: {line_count}")
+print(f"📊 Обработано строк: {line_count:,}")
 print(f"📊 Валидных доменов: {len(domains):,}")
 
-# Проверка
+# 2. Проверяем что нет комментариев
+if domains:
+    test_line = domains[0]
+    if test_line.startswith("#"):
+        print("❌ ОШИБКА: В файле есть комментарии!")
+        print(f"Первая строка: {test_line}")
+        sys.exit(1)
+
+# 3. Проверка на пустоту
 if len(domains) == 0:
     print("❌ ОШИБКА: Нет доменов для обработки!")
     print("Первые 5 строк filtered_clean.txt:")
@@ -284,14 +272,82 @@ if len(domains) == 0:
             print(f"  {i+1}: {f.readline().strip()}")
     sys.exit(1)
 
-# ... остальное без изменений ...
+# 4. Параметры Bloom-фильтра
+n = len(domains)
+false_positive_rate = 0.005  # Более строгая вероятность
+
+m = -int((n * math.log(false_positive_rate)) / (math.log(2) ** 2))
+k = int((m / n) * math.log(2))
+m = ((m + 7) // 8) * 8
+
+print(f"🔧 Параметры Bloom-фильтра:")
+print(f"   • Элементов (n): {n:,}")
+print(f"   • Размер битового массива (m): {m:,} бит ({m//8:,} байт)")
+print(f"   • Хэш-функций (k): {k}")
+print(f"   • Ожидаемые ложные срабатывания: {false_positive_rate*100:.2f}%")
+
+# 5. Создаем и заполняем фильтр
+print("\n⚙️  Заполняем Bloom-фильтр...")
+bit_array = bitarray(m)
+bit_array.setall(0)
+
+processed = 0
+for domain in domains:
+    for seed in range(k):
+        hash_val = mmh3.hash(domain, seed) % m
+        bit_array[hash_val] = 1
+    
+    processed += 1
+    if processed % 50000 == 0:
+        print(f"   Обработано: {processed:,}/{n:,}")
+
+# 6. Сохраняем в НАШЕМ ФОРМАТЕ
+print("\n💾 Сохраняем bloom_filter.bin...")
+output_file = 'bloom_filter.bin'
+with open(output_file, 'wb') as f:
+    f.write(struct.pack('<I', 0x424C4F4D))
+    f.write(struct.pack('<I', 1))
+    f.write(struct.pack('<I', m))
+    f.write(struct.pack('<I', k))
+    f.write(struct.pack('<I', n))
+    bit_array.tofile(f)
+
+# 7. Проверяем созданный файл
+file_size = os.path.getsize(output_file)
+print(f"\n✅ Bloom-фильтр создан!")
+print(f"📏 Размер файла: {file_size:,} байт ({file_size/1024/1024:.2f} MB)")
+
+# 8. Тестовые проверки фильтра
+print("\n🔍 Тестовые проверки фильтра:")
+test_domains = [
+    "google.com",           # Должно быть разрешено
+    "youtube.com",          # Должно быть разрешено
+    "example-porn-site.com", # Должно быть заблокировано (если есть в списке)
+    "casino-example.com",   # Должно быть заблокировано
+    "drugs-example.com",    # Должно быть заблокировано
+]
+
+for test_domain in test_domains:
+    found = False
+    for seed in range(k):
+        hash_val = mmh3.hash(test_domain, seed) % m
+        if not bit_array[hash_val]:
+            break
+    else:
+        found = True
+    
+    status = "🟡 ВОЗМОЖНО" if found else "✅ НЕТ"
+    print(f"   {status} {test_domain}")
+
 BLOOM_EOF
 
 # 9. УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ (кроме нужных)
 echo ""
 echo "🧹 Очистка временных файлов..."
 rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
-rm -f domains_part1.txt domains_part2.txt domains.txt whitelist.txt whitelist_expanded.txt filtered.txt
+rm -f raw_combined.txt whitelist.txt whitelist_expanded.txt 
+# For test filtered.txt filtered_clean.txt
+# Уже удалили ранее: domains_stevenblack.txt domains_blocklist.txt domains.txt
 echo "✅ Временные файлы удалены"
 
 # 10. ФИНАЛЬНАЯ СТАТИСТИКА
