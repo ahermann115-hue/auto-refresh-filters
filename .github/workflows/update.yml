@@ -60,7 +60,7 @@ jobs:
           git config --global user.email "actions@github.com"
           
           # Add files
-          git add bloom_filter.bin blacklist.txt README.md filtered.txt filtered_clean.txt 2>/dev/null || true
+          git add bloom_filter.bin blacklist.txt README.md 2>/dev/null || true
           
           # Commit if changes
           if ! git diff --cached --quiet; then
