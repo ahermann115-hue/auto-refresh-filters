@@ -129,6 +129,80 @@ echo "  • Итого: $(wc -l < domains.txt)"
 
 # Удаляем временные файлы
 rm -f domains_stevenblack.txt domains_blocklist.txt
+echo "🔍 ДИАГНОСТИКА domains.txt (ПЕРЕД нормализацией):"
+echo "================================================"
+
+# 1. Сохраняем копию для сравнения
+cp domains.txt domains_before_normalize.txt
+
+# 2. Показываем что внутри
+echo "📊 СТАТИСТИКА domains.txt:"
+TOTAL=$(wc -l < domains.txt)
+echo "  • Всего доменов: $TOTAL"
+echo "  • Начинаются с '0': $(grep -c '^0' domains.txt)"
+echo "  • Начинаются с '0.': $(grep -c '^0\.' domains.txt)"
+echo "  • Начинаются с '0.0.': $(grep -c '^0\.0\.' domains.txt)"
+echo "  • Начинаются с '0.0.0.': $(grep -c '^0\.0\.0\.' domains.txt)"
+echo "  • Начинаются с '0.0.0.0': $(grep -c '^0\.0\.0\.0' domains.txt)"
+echo "  • Начинаются с 'www.': $(grep -c '^www\.' domains.txt)"
+echo "  • Начинаются с '-': $(grep -c '^-' domains.txt)"
+
+# 3. Примеры для понимания
+echo ""
+echo "📝 ПРИМЕРЫ ДОМЕНОВ:"
+echo "Первые 10 доменов:"
+head -10 domains.txt | cat -n
+echo ""
+echo "Домены начинающиеся с '0.0.0.0' (если есть):"
+grep '^0\.0\.0\.0' domains.txt | head -5
+echo ""
+echo "Домены начинающиеся с 'www.' (первые 5):"
+grep '^www\.' domains.txt | head -5
+
+# 4. Тест функции normalize_domain на примерах
+echo ""
+echo "🧪 ТЕСТ ФУНКЦИИ normalize_domain:"
+
+normalize_domain() {
+    local domain="$1"
+    
+    # Удаляем пока есть что удалять
+    while true; do
+        local original="$domain"
+        
+        # Удаляем префиксы в порядке вложенности
+        domain="${domain#0.0.0.0 }"
+        domain="${domain#www.}"
+        
+        # Если ничего не изменилось - выходим
+        [ "$domain" = "$original" ] && break
+    done
+    
+    echo "$domain"
+}
+
+echo "Тест на примерах из domains.txt:"
+for test in $(head -5 domains.txt); do
+    result=$(normalize_domain "$test")
+    if [ "$test" != "$result" ]; then
+        echo "  $test → $result  (ИЗМЕНИЛСЯ!)"
+    else
+        echo "  $test → $result  (не изменился)"
+    fi
+done
+
+echo ""
+echo "🔍 Проверяем создает ли функция пустые строки:"
+# Тест на всех доменах (первые 100 для скорости)
+head -100 domains.txt | while read domain; do
+    result=$(normalize_domain "$domain")
+    if [ -z "$result" ]; then
+        echo "  ВНИМАНИЕ: '$domain' → ПУСТАЯ СТРОКА!"
+    fi
+done
+
+echo "================================================"
+echo "ПРОДОЛЖАЕМ С НОРМАЛИЗАЦИЕЙ..."
 
 echo "🧹 Рекурсивное удаление префиксов..."
 
@@ -152,7 +226,7 @@ normalize_domain() {
 
 # Применяем ко всем доменам
 cat domains.txt | while read domain; do
-    normalize_domain "$domain"
+  #  normalize_domain "$domain"
 done | \
     grep -v '^\.' | \
     grep -v '^$' | \
