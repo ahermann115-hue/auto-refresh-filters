@@ -240,6 +240,8 @@ HEADER_EOF
 cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
 
+# 8
+
 python3 << 'BLOOM_EOF'
 import struct
 import math
