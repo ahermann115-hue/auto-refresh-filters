@@ -135,7 +135,34 @@ echo "🔍 Применяем whitelist..."
 
 # НОРМАЛИЗУЕМ домены (удаляем www.)
 
-cat > whitelist_expanded.txt << 'EOF'
+cat > whitelist.txt << 'WHITELIST_EOF'
+autorefresh.se
+google.com
+youtube.com
+wikipedia.org
+vk.com
+ok.ru
+mail.ru
+apple.com
+microsoft.com
+play.google.com
+github.com
+stackoverflow.com
+reddit.com
+twitter.com
+facebook.com
+instagram.com
+whatsapp.com
+telegram.org
+signal.org
+discord.com
+slack.com
+zoom.us
+meet.google.com
+WHITELIST_EOF
+
+# 2. Создаем расширенный whitelist_expanded.txt (ПРОСТОЙ вариант)
+cat > whitelist_expanded.txt << 'WHITELIST_EXP_EOF'
 autorefresh.se
 *.autorefresh.se
 google.com
@@ -216,41 +243,18 @@ www.zoom.us
 *.www.zoom.us
 meet.google.com
 *.meet.google.com
-EOF
+WHITELIST_EXP_EOF
 
-awk -F. '{
-    if (NF == 2) {
-        print $0
-        print "*." $0
-        # Без www
-        subdomain = $0
-        sub(/^www\./, "", subdomain)
-        if (subdomain != $0) {
-            print subdomain
-            print "*." subdomain
-        }
-    } else if (NF == 3) {
-        print $0
-        domain = $(NF-1) "." $NF
-        print "*." domain
-        # Без www
-        subdomain = $0
-        sub(/^www\./, "", subdomain)
-        if (subdomain != $0) {
-            print subdomain
-            domain_no_www = $(NF-1) "." $NF
-            print "*." domain_no_www
-        }
-    }
-    sed 's/^www\.//' domains.txt | \
-    sort -u | \
-}' whitelist.txt | sort -u > whitelist_expanded.txt
+echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt) записей"
 
+# 3. Нормализуем домены (удаляем www.) ОДИН раз
+echo "🧹 Нормализуем домены..."
+sed 's/^www\.//' domains.txt > domains_normalized.txt
 
-    grep -v -F -f whitelist_expanded.txt > filtered.txt
-
-# Применяем whitelist к нормализованным доменам
+# 4. Применяем whitelist
+echo "🛡️  Применяем whitelist..."
 grep -v -F -f whitelist_expanded.txt domains_normalized.txt > filtered.txt
+
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
 echo "🔍 ОТЛАДКА: Проверяем что происходит..."
