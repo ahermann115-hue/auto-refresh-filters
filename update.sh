@@ -214,9 +214,7 @@ cat filtered.txt | sed 's/^www\.//' > filtered_clean.txt
 # Убеждаемся что нет комментариев
 sed -i '/^#/d' filtered_clean.txt
 sed -i '/^$/d' filtered_clean.txt
-# Убеждаемся что нет комментариев
-sed -i '/^#/d' filtered_clean.txt
-sed -i '/^$/d' filtered_clean.txt
+
 DOMAIN_COUNT=$(wc -l < filtered_clean.txt)
 echo "✅ filtered_clean.txt: $DOMAIN_COUNT доменов (для Bloom filter)"
 
@@ -241,11 +239,6 @@ HEADER_EOF
 
 cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
-
-# 8. СОЗДАЕМ BLOOM-FILTER ТОЛЬКО из ЧИСТОГО файла
-echo ""
-echo "🌺 СОЗДАЕМ BLOOM-FILTER..."
-echo "=========================="
 
 python3 << 'BLOOM_EOF'
 import struct
@@ -277,15 +270,7 @@ with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
 print(f"📊 Обработано строк: {line_count:,}")
 print(f"📊 Валидных доменов: {len(domains):,}")
 
-# 2. Проверяем что нет комментариев
-if domains:
-    test_line = domains[0]
-    if test_line.startswith("#"):
-        print("❌ ОШИБКА: В файле есть комментарии!")
-        print(f"Первая строка: {test_line}")
-        sys.exit(1)
-
-# 3. Проверка на пустоту
+# 2. Проверка на пустоту
 if len(domains) == 0:
     print("❌ ОШИБКА: Нет доменов для обработки!")
     print("Первые 5 строк filtered_clean.txt:")
@@ -294,7 +279,7 @@ if len(domains) == 0:
             print(f"  {i+1}: {f.readline().strip()}")
     sys.exit(1)
 
-# 4. Параметры Bloom-фильтра
+# 3. Параметры Bloom-фильтра
 n = len(domains)
 false_positive_rate = 0.005  # Более строгая вероятность
 
@@ -308,7 +293,7 @@ print(f"   • Размер битового массива (m): {m:,} бит ({
 print(f"   • Хэш-функций (k): {k}")
 print(f"   • Ожидаемые ложные срабатывания: {false_positive_rate*100:.2f}%")
 
-# 5. Создаем и заполняем фильтр
+# 4. Создаем и заполняем фильтр
 print("\n⚙️  Заполняем Bloom-фильтр...")
 bit_array = bitarray(m)
 bit_array.setall(0)
@@ -323,7 +308,7 @@ for domain in domains:
     if processed % 50000 == 0:
         print(f"   Обработано: {processed:,}/{n:,}")
 
-# 6. Сохраняем в НАШЕМ ФОРМАТЕ
+# 5. Сохраняем в НАШЕМ ФОРМАТЕ
 print("\n💾 Сохраняем bloom_filter.bin...")
 output_file = 'bloom_filter.bin'
 with open(output_file, 'wb') as f:
@@ -334,12 +319,12 @@ with open(output_file, 'wb') as f:
     f.write(struct.pack('<I', n))
     bit_array.tofile(f)
 
-# 7. Проверяем созданный файл
+# 6. Проверяем созданный файл
 file_size = os.path.getsize(output_file)
 print(f"\n✅ Bloom-фильтр создан!")
 print(f"📏 Размер файла: {file_size:,} байт ({file_size/1024/1024:.2f} MB)")
 
-# 8. Тестовые проверки фильтра
+# 7. Тестовые проверки фильтра
 print("\n🔍 Тестовые проверки фильтра:")
 test_domains = [
     "google.com",           # Должно быть разрешено
