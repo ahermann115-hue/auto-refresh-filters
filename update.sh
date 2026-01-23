@@ -1,20 +1,27 @@
 #!/bin/bash
 set -e
 
-echo "=== ГЕНЕРАЦИЯ BLOOM-FILTER ДЛЯ AUTOREFRESH ==="
+echo "=== ГЕНЕРАЦИЯ BLOOM-FILTER ДЛЯ AUTOREFRESH (ПОЛНАЯ ВЕРСИЯ) ==="
 echo "📝 Источник 1: StevenBlack/hosts (fakenews-gambling-porn) - без социальных сетей"
 echo "📝 Источник 2: StevenBlack/hosts (базовый список) - включает Malware"
+echo "📝 Источник 3: BlockList Project - Drugs, Weapons, Violence"
 echo "🕐 Время: $(date)"
 echo "📁 Рабочая директория: $(pwd)"
 echo "🔄 Частота: Ежедневное обновление"
 echo ""
 
 # 0. УСТАНАВЛИВАЕМ ЗАВИСИМОСТИ PYTHON
-echo "🐍 Устанавливаем Python зависимости..."
-pip install mmh3 bitarray --quiet 2>/dev/null || true
+echo "🐍 Проверяем Python зависимости..."
+python3 -c "import mmh3, bitarray" 2>/dev/null || {
+    echo "Устанавливаем mmh3 и bitarray..."
+    pip install mmh3 bitarray --quiet 2>/dev/null || {
+        echo "❌ Не удалось установить зависимости"
+        exit 1
+    }
+}
 echo "✅ Зависимости установлены"
 
-# 1. Скачиваем ДВА списка
+# 1. Скачиваем ВСЕ списки
 echo "📥 Загружаем список 1: Fakenews + Gambling + Porn (без социальных сетей)..."
 curl -s "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts" -o raw1.txt
 echo "✅ Файл 1: $(wc -l < raw1.txt) строк"
@@ -23,62 +30,148 @@ echo "📥 Загружаем список 2: Базовый список (вк�
 curl -s "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" -o raw2.txt
 echo "✅ Файл 2: $(wc -l < raw2.txt) строк"
 
-# 2. Объединяем в один файл
-echo "🔄 Объединяем оба списка..."
-cat raw1.txt raw2.txt > raw_combined.txt
+echo "📥 Загружаем список 3: BlockList Project - Наркотики..."
+curl -s "https://blocklistproject.github.io/Lists/alt-version/drugs-nl.txt" -o raw3_drugs.txt
+echo "✅ Файл 3 (наркотики): $(wc -l < raw3_drugs.txt) строк"
+
+echo "📥 Загружаем список 4: BlockList Project - Оружие..."
+curl -s "https://blocklistproject.github.io/Lists/alt-version/weapons-nl.txt" -o raw4_weapons.txt
+echo "✅ Файл 4 (оружие): $(wc -l < raw4_weapons.txt) строк"
+
+echo "📥 Загружаем список 5: BlockList Project - Насилие..."
+curl -s "https://blocklistproject.github.io/Lists/alt-version/abuse-nl.txt" -o raw5_violence.txt
+echo "✅ Файл 5 (насилие): $(wc -l < raw5_violence.txt) строк"
+
+# 2. Объединяем ВСЕ файлы в один
+echo "🔄 Объединяем все списки..."
+cat raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt > raw_combined.txt
 echo "✅ Объединенный файл: $(wc -l < raw_combined.txt) строк"
 
 # 3. Сохраняем копии для истории
 cp raw1.txt raw1_backup.txt
 cp raw2.txt raw2_backup.txt
+cp raw3_drugs.txt raw3_backup.txt
+cp raw4_weapons.txt raw4_backup.txt
+cp raw5_violence.txt raw5_backup.txt
 cp raw_combined.txt raw_combined_backup.txt
-echo "📁 Сохранены копии: raw1_backup.txt, raw2_backup.txt, raw_combined_backup.txt"
+echo "📁 Сохранены резервные копии всех списков"
 
 # 4. Очищаем и форматируем домены
 echo "🧹 Очищаем формат hosts файла..."
 
-# Удаляем ВСЕ "0." в начале каждой строки
-grep '^0\.0\.0\.0[[:space:]]' raw_combined.txt | \
+# Для StevenBlack формата (0.0.0.0 domain)
+grep '^0\.0\.0\.0[[:space:]]' raw_combined.txt | awk '{print $2}' > domains_part1.txt
+
+# Для BlockList формата (domain или 0.0.0.0 domain)
+grep -v '^0\.0\.0\.0[[:space:]]' raw_combined.txt | grep -v '^#' | grep -v '^$' | \
     awk '{
-        domain = $2
-        sub(/#.*$/, "", domain)
-        # Удаляем все "0." в начале
-        while (sub(/^0\./, "", domain)) {}
-        print domain
-    }' | \
+        domain = $1
+        # Удаляем 0.0.0.0 если есть в начале строки
+        sub(/^0\.0\.0\.0[[:space:]]+/, "", domain)
+        # Берем только первое слово (домен)
+        sub(/[[:space:]].*$/, "", domain)
+        # Проверяем что это домен (содержит точку)
+        if (domain ~ /\./) {
+            print domain
+        }
+    }' > domains_part2.txt
+
+# Объединяем оба метода сбора
+cat domains_part1.txt domains_part2.txt | \
+    sed 's/#.*$//' | \
+    sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | \
     grep '\.' | \
     sort -u > domains.txt
 
-echo "✅ Уникальных доменов: $(wc -l < domains.txt)"
+echo "✅ Уникальных доменов после очистки: $(wc -l < domains.txt)"
 
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
 cat > whitelist.txt << 'WHITELIST_EOF'
 autorefresh.se
+google.com
+youtube.com
+wikipedia.org
+vk.com
+ok.ru
+mail.ru
+apple.com
+microsoft.com
+play.google.com
+github.com
+stackoverflow.com
+reddit.com
+twitter.com
+facebook.com
+instagram.com
+whatsapp.com
+telegram.org
+signal.org
+discord.com
+slack.com
+zoom.us
+meet.google.com
 WHITELIST_EOF
 
-grep -v -F -f whitelist.txt domains.txt > filtered.txt
+# Также исключаем поддомены белого списка
+awk -F. '{
+    if (NF == 2) {
+        print $0
+        print "*." $0
+    } else if (NF == 3) {
+        print $0
+        domain = $(NF-1) "." $NF
+        print "*." domain
+    }
+}' whitelist.txt > whitelist_expanded.txt
+
+grep -v -F -f whitelist_expanded.txt domains.txt > filtered.txt
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
 # 6. Показываем примеры для проверки
 echo ""
-echo "📊 ПЕРВЫЕ 10 ДОМЕНОВ (из объединенного списка):"
-head -10 filtered.txt | cat -n
+echo "📊 ПЕРВЫЕ 20 ДОМЕНОВ (примеры блокировки):"
+head -20 filtered.txt | cat -n
 echo ""
-echo "📊 ПОСЛЕДНИЕ 10 ДОМЕНОВ:"
-tail -10 filtered.txt | cat -n
+echo "📊 СТАТИСТИКА ПО КАТЕГОРИЯМ:"
+echo "Общее количество доменов: $(wc -l < filtered.txt)"
 echo ""
+echo "🔍 Проверяем наличие ключевых категорий:"
+for category in "porn" "casino" "gambl" "drug" "weapon" "gun" "violence" "malware"; do
+    count=$(grep -i "$category" filtered.txt | wc -l)
+    echo "  • $category: $count доменов"
+done
 
 # 7. Создаем читаемый TXT файл с указанием источников
+echo ""
 echo "📄 Создаем blacklist.txt..."
 DOMAIN_COUNT=$(wc -l < filtered.txt)
 
-# ПРОСТО список доменов, без лишних комментариев
-cat filtered.txt > blacklist.txt
+# Добавляем заголовок с информацией
+cat > blacklist.txt << HEADER_EOF
+# AutoRefresh Content Filter - Complete Blacklist
+# Generated: $(date)
+# Total domains: $DOMAIN_COUNT
+# Sources:
+# 1. StevenBlack/hosts (fakenews-gambling-porn)
+# 2. StevenBlack/hosts (base with malware)
+# 3. BlockList Project - Drugs
+# 4. BlockList Project - Weapons
+# 5. BlockList Project - Abuse/Violence
+#
+# Whitelist applied: social networks, essential services
+#
+# FORMAT: One domain per line
+#
+
+HEADER_EOF
+
+# Добавляем домены
+cat filtered.txt >> blacklist.txt
 
 echo "✅ blacklist.txt создан: $DOMAIN_COUNT доменов"
 
-# 8. СОЗДАЕМ BLOOM-FILTER (остается без изменений)
+# 8. СОЗДАЕМ BLOOM-FILTER
 echo ""
 echo "🌺 СОЗДАЕМ BLOOM-FILTER..."
 echo "=========================="
@@ -97,7 +190,7 @@ except ImportError:
     print("❌ ОШИБКА: Библиотека mmh3 не установлена!")
     sys.exit(1)
 
-print("=== СОЗДАНИЕ BLOOM-FILTER (из объединенного списка) ===")
+print("=== СОЗДАНИЕ BLOOM-FILTER (ПОЛНАЯ ВЕРСИЯ) ===")
 
 # 1. Читаем ВСЕ домены
 print("📖 Чтение доменов...")
@@ -116,7 +209,7 @@ if len(domains) == 0:
 
 # 2. Параметры Bloom-фильтра
 n = len(domains)
-false_positive_rate = 0.01
+false_positive_rate = 0.005  # Более строгая вероятность
 
 m = -int((n * math.log(false_positive_rate)) / (math.log(2) ** 2))
 k = int((m / n) * math.log(2))
@@ -157,15 +250,37 @@ with open(output_file, 'wb') as f:
 # 5. Проверяем созданный файл
 file_size = os.path.getsize(output_file)
 print(f"\n✅ Bloom-фильтр создан!")
-print(f"📏 Размер файла: $file_size байт ($file_size/1024/1024:.2f MB)")
+print(f"📏 Размер файла: {file_size:,} байт ({file_size/1024/1024:.2f} MB)")
+
+# 6. Тестовые проверки
+print("\n🔍 Тестовые проверки фильтра:")
+test_domains = [
+    "google.com",           # Должно быть разрешено
+    "youtube.com",          # Должно быть разрешено
+    "example-porn-site.com", # Должно быть заблокировано (если есть в списке)
+    "casino-example.com",   # Должно быть заблокировано
+    "drugs-example.com",    # Должно быть заблокировано
+]
+
+for test_domain in test_domains:
+    found = False
+    for seed in range(k):
+        hash_val = mmh3.hash(test_domain, seed) % m
+        if not bit_array[hash_val]:
+            break
+    else:
+        found = True
+    
+    status = "🟡 ВОЗМОЖНО" if found else "✅ НЕТ"
+    print(f"   {status} {test_domain}")
 
 BLOOM_EOF
 
-# 9. УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ
+# 9. УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ (кроме нужных)
 echo ""
 echo "🧹 Очистка временных файлов..."
-rm -f raw1.txt raw2.txt raw_combined.txt domains.txt whitelist.txt filtered.txt
-# Оставляем backup файлы для отладки
+rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
+rm -f domains_part1.txt domains_part2.txt domains.txt whitelist.txt whitelist_expanded.txt filtered.txt
 echo "✅ Временные файлы удалены"
 
 # 10. ФИНАЛЬНАЯ СТАТИСТИКА
@@ -176,8 +291,11 @@ echo "📄 blacklist.txt: $DOMAIN_COUNT доменов"
 
 if [ -f "bloom_filter.bin" ]; then
     bloom_size=$(stat -c%s bloom_filter.bin 2>/dev/null || stat -f%z bloom_filter.bin)
+    bloom_size_kb=$((bloom_size / 1024))
+    bloom_size_mb=$(echo "scale=2; $bloom_size / 1024 / 1024" | bc)
+    
     echo "🌺 bloom_filter.bin:"
-    echo "   • Размер: $bloom_size байт ($(($bloom_size / 1024)) KB)"
+    echo "   • Размер: $bloom_size байт ($bloom_size_kb KB, $bloom_size_mb MB)"
     
     # Проверяем заголовок
     python3 << 'FINAL_CHECK'
@@ -188,9 +306,35 @@ try:
         magic, version, m, k, n = struct.unpack('<IIIII', header)
         print(f"   • MAGIC: {'✅ BLOOM' if magic == 0x424C4F4D else '❌ ОШИБКА'}")
         print(f"   • Версия: {version}")
-        print(f"   • Размер массива: {m:,} бит")
+        print(f"   • Размер массива: {m:,} бит ({m//8:,} байт)")
         print(f"   • Хэш-функций: {k}")
         print(f"   • Ожидаемых элементов: {n:,}")
+        
+        # Читаем все домены для статистики
+        with open('blacklist.txt', 'r', encoding='utf-8') as bl:
+            domains = [line.strip() for line in bl if line.strip() and not line.startswith('#')]
+        
+        from collections import defaultdict
+        categories = defaultdict(int)
+        for domain in domains[:1000]:  # Проверяем первые 1000
+            domain_lower = domain.lower()
+            if any(word in domain_lower for word in ['porn', 'xxx', 'adult', 'sex']):
+                categories['porn'] += 1
+            elif any(word in domain_lower for word in ['casino', 'gambl', 'poker', 'bet']):
+                categories['gambling'] += 1
+            elif any(word in domain_lower for word in ['drug', 'weed', 'cocaine', 'opioid']):
+                categories['drugs'] += 1
+            elif any(word in domain_lower for word in ['weapon', 'gun', 'rifle', 'ammo']):
+                categories['weapons'] += 1
+            elif any(word in domain_lower for word in ['violence', 'abuse', 'hurt', 'attack']):
+                categories['violence'] += 1
+            elif any(word in domain_lower for word in ['malware', 'virus', 'trojan', 'hack']):
+                categories['malware'] += 1
+        
+        print(f"\n📊 Примерное распределение категорий (первые 1000 доменов):")
+        for cat, count in categories.items():
+            print(f"   • {cat}: {count} доменов")
+        
 except Exception as e:
     print(f"   ❌ Ошибка проверки: {e}")
 FINAL_CHECK
@@ -199,106 +343,77 @@ else
     exit 1
 fi
 
-# 11. СОЗДАЕМ README ДЛЯ GITHUB
+# 11. СОЗДАЕМ/ОБНОВЛЯЕМ README
 echo ""
-echo "📝 Создаем README.md..."
+echo "📝 Обновляем README.md..."
 
-# Получаем статистику для README
 BLOOM_SIZE=$(stat -c%s bloom_filter.bin 2>/dev/null || stat -f%z bloom_filter.bin)
-BLOOM_SIZE_KB=$(($BLOOM_SIZE / 1024))
-CURRENT_DATE=$(date +"%Y-%m-%d")
+BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
+BLOOM_SIZE_MB=$(echo "scale=2; $BLOOM_SIZE / 1024 / 1024" | bc)
+CURRENT_DATE=$(date +"%Y-%m-%d %H:%M:%S")
 
 cat > README.md << README_EOF
-# AutoRefresh Filters
+# AutoRefresh Content Filters
 
-Этот репозиторий содержит фильтры для блокировки нежелательного контента в приложении AutoRefresh.
+Полная система фильтрации контента для приложения AutoRefresh (рейтинг 13+).
 
-## 📊 Статистика
+## 📊 СТАТИСТИКА
 - **Дата обновления:** $CURRENT_DATE
-- **Доменов в списке:** $DOMAIN_COUNT
-- **Размер фильтра:** $BLOOM_SIZE_KB KB
-- **Формат:** Bloom-filter (бинарный)
+- **Всего доменов:** $DOMAIN_COUNT
+- **Размер Bloom-фильтра:** $BLOOM_SIZE_KB KB ($BLOOM_SIZE_MB MB)
+- **Вероятность ложных срабатываний:** 0.5%
 
-## 📁 Файлы
+## 🎯 БЛОКИРУЕМЫЕ КАТЕГОРИИ
+1. **Порно/Adult content** (из StevenBlack)
+2. **Азартные игры/Casino** (из StevenBlack)
+3. **Фейковые новости** (из StevenBlack)
+4. **Вредоносное ПО/Malware** (из StevenBlack)
+5. **Наркотики/Drugs** (из BlockList Project)
+6. **Оружие/Weapons** (из BlockList Project)
+7. **Насилие/Violence** (из BlockList Project)
 
-### Основные файлы:
-- \`bloom_filter.bin\` - **ОСНОВНОЙ ФИЛЬТР** в формате Bloom-filter
-- \`blacklist.txt\` - Текстовый список доменов (для справки)
+## ✅ РАЗРЕШЕННЫЕ КАТЕГОРИИ
+- Социальные сети (Facebook, Twitter, Instagram, VK, OK)
+- Знакомства (без adult-контента)
+- Информационные сайты об алкоголе/табаке
+- Поисковые системы и почта
+- Технологические платформы
 
-### Вспомогательные файлы:
-- \`update.sh\` - Скрипт автоматического обновления
-- \`.github/workflows/weekly-update.yml\` - Автоматизация GitHub Actions
+## 📁 ФАЙЛЫ
+- \`bloom_filter.bin\` - Основной фильтр в формате Bloom
+- \`blacklist.txt\` - Текстовый список всех доменов
+- \`update.sh\` - Скрипт генерации фильтров
 
-## 🔗 Источники данных
+## 🔗 ИСТОЧНИКИ (MIT License)
+1. **StevenBlack/hosts** - комбинированный список (fakenews-gambling-porn + base)
+2. **BlockList Project** - специализированные списки:
+   - Наркотики: \`drugs-nl.txt\`
+   - Оружие: \`weapons-nl.txt\`
+   - Насилие: \`abuse-nl.txt\`
 
-Используются два источника из **[StevenBlack/hosts](https://github.com/StevenBlack/hosts)**:
+## 🔧 ТЕХНИЧЕСКИЕ ДЕТАЛИ
+- **Алгоритм:** Bloom filter с murmurhash3
+- **Хэш-функций:** зависит от количества доменов
+- **Формат файла:** собственный бинарный формат
+- **Обновление:** автоматическое, ежедневное
 
-### 1. Основной список (fakenews-gambling-porn)
-**URL:** \`https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-porn/hosts\`
+## 🚀 ИСПОЛЬЗОВАНИЕ
+1. Скопируйте \`bloom_filter.bin\` в assets приложения
+2. Используйте BloomFilter класс для проверки URL
+3. Интегрируйте с WebViewClient.shouldInterceptRequest()
 
-**Блокируемые категории:**
-- Порно (18+ контент)
-- Азартные игры (гемблинг)
-- Фейковые новости
-- **Без социальных сетей** (специально исключены для приложения 18+)
-
-### 2. Базовый список (включает Malware)
-**URL:** \`https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts\`
-
-**Блокируемые категории:**
-- Вредоносное ПО (Malware)
-- Рекламные домены
-- Трекеры
-- Шпионское ПО
-
-## 🎯 Итоговый фильтр включает:
-- ✅ Порно (18+ контент)
-- ✅ Азартные игры
-- ✅ Фейковые новости
-- ✅ Malware/Вредоносное ПО
-- ✅ Реклама и трекеры
-
-
-## 🛠️ Формат bloom_filter.bin
-
-Файл \`bloom_filter.bin\` имеет следующую структуру:
-
-| Смещение | Размер | Описание                     | Значение      |
-|----------|--------|------------------------------|---------------|
-| 0x00     | 4 байта | Magic number               | \`BLOOM\` (0x424C4F4D) |
-| 0x04     | 4 байта | Версия формата             | 1             |
-| 0x08     | 4 байта | Размер битового массива (m) |               |
-| 0x0C     | 4 байта | Количество хэшей (k)       |               |
-| 0x10     | 4 байта | Ожидаемое количество элементов (n) |     |
-| 0x14+    | m/8 байт | Битный массив              |               |
-
-## 🔄 Автоматическое обновление
-
-Фильтры обновляются автоматически каждое воскресенье через GitHub Actions.
-
-**Расписание:**
-- Ежедневно в 00:00 UTC
-- Автоматическое обновление из источников
-- Ручной запуск доступен
-
-Для ручного запуска:
-1. Перейдите в раздел **Actions** репозитория
-2. Выберите **"Daily Filter Update"**
-3. Нажмите **"Run workflow"**
-
-## 📄 Лицензия
-
-Данные распространяются под теми же лицензиями, что и исходные источники:
-- StevenBlack/hosts: MIT License
-- См. исходные репозитории для подробностей
+## 📄 ЛИЦЕНЗИЯ
+Данные распространяются под MIT-лицензиями исходных источников.
+Код скрипта - MIT License.
 
 ---
 
-*Последнее обновление: $CURRENT_DATE*
+*Автоматически сгенерировано $CURRENT_DATE*
 README_EOF
 
-echo "✅ README.md создан с указанием обоих источников"
+echo "✅ README.md обновлен"
 
 echo ""
 echo "✅ СКРИПТ ВЫПОЛНЕН УСПЕШНО!"
-echo "📌 Создан объединенный фильтр: Fakenews + Gambling + Porn + Malware"
+echo "🎉 СОЗДАН ПОЛНЫЙ ФИЛЬТР ВСЕХ КАТЕГОРИЙ!"
+echo "📦 Итоговые файлы: bloom_filter.bin ($BLOOM_SIZE_KB KB) и blacklist.txt ($DOMAIN_COUNT доменов)"
