@@ -160,37 +160,28 @@ zoom.us
 meet.google.com
 WHITELIST_EOF
 
-# Также исключаем поддомены белого списка
-# Также исключаем поддомены белого списка С НОРМАЛИЗАЦИЕЙ
-awk -F. '{
-    if (NF == 2) {
-        print $0
-        print "*." $0
-        # Без www
-        subdomain = $0
-        sub(/^www\./, "", subdomain)
-        if (subdomain != $0) {
-            print subdomain
-            print "*." subdomain
-        }
-    } else if (NF == 3) {
-        print $0
-        domain = $(NF-1) "." $NF
-        print "*." domain
-        # Без www
-        subdomain = $0
-        sub(/^www\./, "", subdomain)
-        if (subdomain != $0) {
-            print subdomain
-            domain_no_www = $(NF-1) "." $NF
-            print "*." domain_no_www
-        }
-    }
-}' whitelist.txt | sort -u > whitelist_expanded.txt
+sed 's/^www\.//' domains.txt | \
+    sort -u | \
+    grep -v -F -f whitelist_expanded.txt > filtered.txt
 
 # Применяем whitelist к нормализованным доменам
 grep -v -F -f whitelist_expanded.txt domains_normalized.txt > filtered.txt
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
+
+echo "🔍 ОТЛАДКА: Проверяем что происходит..."
+echo "1. domains.txt первые 3:"
+head -3 domains.txt
+echo ""
+echo "2. domains_normalized.txt первые 3:"
+head -3 domains_normalized.txt
+echo ""
+echo "3. filtered.txt первые 3:"
+head -3 filtered.txt
+echo ""
+echo "4. Количество www. в каждом файле:"
+echo "   domains.txt: $(grep -c '^www\.' domains.txt)"
+echo "   domains_normalized.txt: $(grep -c '^www\.' domains_normalized.txt)"
+echo "   filtered.txt: $(grep -c '^www\.' filtered.txt)"
 
 # 6. Показываем примеры для проверки
 echo ""
@@ -219,6 +210,7 @@ done
 # 7. Создаем ЧИСТЫЙ файл для Bloom filter и blacklist.txt ОТДЕЛЬНО
 echo "📄 Создаем файлы..."
 
+sed -i 's/^www\.//' filtered.txt
 # 7a. Создаем чистый файл для Bloom filter
 cp filtered.txt filtered_clean.txt
 # Один раз удаляем комментарии и пустые строки
