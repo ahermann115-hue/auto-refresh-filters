@@ -367,8 +367,7 @@ BLOOM_EOF
 echo ""
 echo "🧹 Очистка временных файлов..."
 rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
-rm -f raw_combined.txt whitelist.txt whitelist_expanded.txt 
-# For test filtered.txt filtered_clean.txt
+rm -f raw_combined.txt whitelist.txt whitelist_expanded.txt filtered.txt filtered_clean.txt domains_normalized.txt
 # Уже удалили ранее: domains_stevenblack.txt domains_blocklist.txt domains.txt
 echo "✅ Временные файлы удалены"
 
