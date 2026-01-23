@@ -56,10 +56,11 @@ cp raw5_violence.txt raw5_backup.txt
 cp raw_combined.txt raw_combined_backup.txt
 echo "📁 Сохранены резервные копии всех списков"
 
-# 4. Очищаем и форматируем домены (КАК У ТЕБЯ БЫЛО)
+# 4. Очищаем и форматируем домены (КОМБИНИРОВАННЫЙ МЕТОД)
 echo "🧹 Очищаем формат hosts файла..."
 
-# ТВОЙ ОРИГИНАЛЬНЫЙ КОД который работал:
+# Метод 1: Для StevenBlack файлов (твой старый код)
+echo "🔧 Обрабатываем StevenBlack формат..."
 grep '^0\.0\.0\.0[[:space:]]' raw_combined.txt | \
     awk '{
         domain = $2
@@ -68,19 +69,66 @@ grep '^0\.0\.0\.0[[:space:]]' raw_combined.txt | \
         while (sub(/^0\./, "", domain)) {}
         print domain
     }' | \
-    grep '\.' | \
-    sort -u > domains.txt
+    grep '\.' > domains_stevenblack.txt
+
+echo "✅ Доменов из StevenBlack: $(wc -l < domains_stevenblack.txt)"
+
+# Метод 2: Для BlockList файлов
+echo "🔧 Обрабатываем BlockList формат..."
+# Обрабатываем каждый BlockList файл отдельно
+for block_file in raw3_drugs.txt raw4_weapons.txt raw5_violence.txt; do
+    if [ -f "$block_file" ]; then
+        echo "  Обрабатываем $block_file..."
+        cat "$block_file" | \
+            grep -v '^#' | \
+            grep -v '^$' | \
+            awk '{
+                # BlockList может быть в двух форматах:
+                # 1. domain
+                # 2. 0.0.0.0 domain
+                if ($1 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+                    domain = $2
+                } else {
+                    domain = $1
+                }
+                # Очищаем
+                sub(/#.*$/, "", domain)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", domain)
+                if (domain && domain ~ /\./) {
+                    print domain
+                }
+            }' >> domains_blocklist.txt
+    fi
+done
+
+if [ -f "domains_blocklist.txt" ]; then
+    echo "✅ Доменов из BlockList: $(wc -l < domains_blocklist.txt)"
+else
+    echo "⚠️  BlockList файлы не найдены"
+    touch domains_blocklist.txt
+fi
+
+# Объединяем все домены
+cat domains_stevenblack.txt domains_blocklist.txt | \
+    sort -u | \
+    # Фильтруем мусор
+    grep -v '^$' | \
+    grep -v '^\.' | \
+    grep -v '^0\.0\.0\.0$' | \
+    grep -v '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | \
+    grep '\.' > domains.txt
 
 echo "✅ Уникальных доменов: $(wc -l < domains.txt)"
 
-# Объединяем оба метода сбора
-cat domains_part1.txt domains_part2.txt | \
-    sed 's/#.*$//' | \
-    sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | \
-    grep '\.' | \
-    sort -u > domains.txt
+# Показываем статистику
+echo ""
+echo "📊 СТАТИСТИКА ОБРАБОТКИ:"
+echo "  • StevenBlack: $(wc -l < domains_stevenblack.txt)"
+echo "  • BlockList: $(wc -l < domains_blocklist.txt 2>/dev/null || echo 0)"
+echo "  • Итого: $(wc -l < domains.txt)"
 
-echo "✅ Уникальных доменов после очистки: $(wc -l < domains.txt)"
+# Удаляем временные файлы
+rm -f domains_stevenblack.txt domains_blocklist.txt
 
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
