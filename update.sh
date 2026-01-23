@@ -132,6 +132,8 @@ rm -f domains_stevenblack.txt domains_blocklist.txt
 
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
+sed 's/^www\.//' domains.txt | \
+    sort -u | \
 # НОРМАЛИЗУЕМ домены (удаляем www.)
 sed 's/^www\.//' domains.txt > domains_normalized.txt
 cat > whitelist.txt << 'WHITELIST_EOF'
@@ -160,8 +162,33 @@ zoom.us
 meet.google.com
 WHITELIST_EOF
 
-sed 's/^www\.//' domains.txt | \
-    sort -u | \
+awk -F. '{
+    if (NF == 2) {
+        print $0
+        print "*." $0
+        # Без www
+        subdomain = $0
+        sub(/^www\./, "", subdomain)
+        if (subdomain != $0) {
+            print subdomain
+            print "*." subdomain
+        }
+    } else if (NF == 3) {
+        print $0
+        domain = $(NF-1) "." $NF
+        print "*." domain
+        # Без www
+        subdomain = $0
+        sub(/^www\./, "", subdomain)
+        if (subdomain != $0) {
+            print subdomain
+            domain_no_www = $(NF-1) "." $NF
+            print "*." domain_no_www
+        }
+    }
+}' whitelist.txt | sort -u > whitelist_expanded.txt
+
+
     grep -v -F -f whitelist_expanded.txt > filtered.txt
 
 # Применяем whitelist к нормализованным доменам
