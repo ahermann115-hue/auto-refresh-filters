@@ -192,15 +192,13 @@ zoom.us
 meet.google.com
 WHITELIST_EOF
 
-echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt) записей"
-
 # 3. Нормализуем домены (удаляем www.) ОДИН раз
 echo "🧹 Нормализуем домены..."
 sed 's/^www\.//' domains.txt > domains_normalized.txt
 
 # 4. Применяем whitelist
 echo "🛡️  Применяем whitelist..."
-grep -v -F -f whitelist_expanded.txt domains_normalized.txt > filtered.txt
+grep -v -F -f whitelist.txt domains_normalized.txt > filtered.txt
 
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
@@ -398,7 +396,7 @@ BLOOM_EOF
 echo ""
 echo "🧹 Очистка временных файлов..."
 rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
-rm -f raw_combined.txt whitelist.txt whitelist_expanded.txt filtered.txt filtered_clean.txt domains_normalized.txt
+rm -f raw_combined.txt whitelist.txt filtered.txt filtered_clean.txt domains_normalized.txt
 # Уже удалили ранее: domains_stevenblack.txt domains_blocklist.txt domains.txt
 echo "✅ Временные файлы удалены"
 
