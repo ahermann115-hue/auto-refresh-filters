@@ -140,8 +140,7 @@ normalize_domain() {
         local original="$domain"
         
         # Удаляем префиксы в порядке вложенности
-        domain="${domain#0.0.0.0 }"
-
+        domain="${domain#0.0.0.0 }"  # ← ПРОБЕЛ вместо точки!
         domain="${domain#www.}"
         
         # Если ничего не изменилось - выходим
@@ -193,95 +192,11 @@ zoom.us
 meet.google.com
 WHITELIST_EOF
 
-# 2. Создаем расширенный whitelist_expanded.txt (ПРОСТОЙ вариант)
-cat > whitelist_expanded.txt << 'WHITELIST_EXP_EOF'
-autorefresh.se
-*.autorefresh.se
-google.com
-*.google.com
-www.google.com
-*.www.google.com
-youtube.com
-*.youtube.com
-www.youtube.com
-*.www.youtube.com
-wikipedia.org
-*.wikipedia.org
-www.wikipedia.org
-*.www.wikipedia.org
-vk.com
-*.vk.com
-ok.ru
-*.ok.ru
-mail.ru
-*.mail.ru
-apple.com
-*.apple.com
-www.apple.com
-*.www.apple.com
-microsoft.com
-*.microsoft.com
-www.microsoft.com
-*.www.microsoft.com
-play.google.com
-*.play.google.com
-github.com
-*.github.com
-www.github.com
-*.www.github.com
-stackoverflow.com
-*.stackoverflow.com
-www.stackoverflow.com
-*.www.stackoverflow.com
-reddit.com
-*.reddit.com
-www.reddit.com
-*.www.reddit.com
-twitter.com
-*.twitter.com
-www.twitter.com
-*.www.twitter.com
-facebook.com
-*.facebook.com
-www.facebook.com
-*.www.facebook.com
-instagram.com
-*.instagram.com
-www.instagram.com
-*.www.instagram.com
-whatsapp.com
-*.whatsapp.com
-www.whatsapp.com
-*.www.whatsapp.com
-telegram.org
-*.telegram.org
-www.telegram.org
-*.www.telegram.org
-signal.org
-*.signal.org
-www.signal.org
-*.www.signal.org
-discord.com
-*.discord.com
-www.discord.com
-*.www.discord.com
-slack.com
-*.slack.com
-www.slack.com
-*.www.slack.com
-zoom.us
-*.zoom.us
-www.zoom.us
-*.www.zoom.us
-meet.google.com
-*.meet.google.com
-WHITELIST_EXP_EOF
-
 echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt) записей"
 
 # 3. Нормализуем домены (удаляем www.) ОДИН раз
 echo "🧹 Нормализуем домены..."
-sed -E 's/^www\.([^.]+\.)/\1/' domains.txt > domains_normalized.txt
+sed 's/^www\.//' domains.txt > domains_normalized.txt
 
 # 4. Применяем whitelist
 echo "🛡️  Применяем whitelist..."
@@ -331,7 +246,6 @@ done
 # 7. Создаем ЧИСТЫЙ файл для Bloom filter и blacklist.txt ОТДЕЛЬНО
 echo "📄 Создаем файлы..."
 
-sed -i 's/^www\.//' filtered.txt
 # 7a. Создаем чистый файл для Bloom filter
 cp filtered.txt filtered_clean.txt
 # Один раз удаляем комментарии и пустые строки
