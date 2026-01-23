@@ -132,6 +132,8 @@ rm -f domains_stevenblack.txt domains_blocklist.txt
 
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
+# НОРМАЛИЗУЕМ домены (удаляем www.)
+sed 's/^www\.//' domains.txt > domains_normalized.txt
 cat > whitelist.txt << 'WHITELIST_EOF'
 autorefresh.se
 google.com
@@ -159,18 +161,35 @@ meet.google.com
 WHITELIST_EOF
 
 # Также исключаем поддомены белого списка
+# Также исключаем поддомены белого списка С НОРМАЛИЗАЦИЕЙ
 awk -F. '{
     if (NF == 2) {
         print $0
         print "*." $0
+        # Без www
+        subdomain = $0
+        sub(/^www\./, "", subdomain)
+        if (subdomain != $0) {
+            print subdomain
+            print "*." subdomain
+        }
     } else if (NF == 3) {
         print $0
         domain = $(NF-1) "." $NF
         print "*." domain
+        # Без www
+        subdomain = $0
+        sub(/^www\./, "", subdomain)
+        if (subdomain != $0) {
+            print subdomain
+            domain_no_www = $(NF-1) "." $NF
+            print "*." domain_no_www
+        }
     }
-}' whitelist.txt > whitelist_expanded.txt
+}' whitelist.txt | sort -u > whitelist_expanded.txt
 
-grep -v -F -f whitelist_expanded.txt domains.txt > filtered.txt
+# Применяем whitelist к нормализованным доменам
+grep -v -F -f whitelist_expanded.txt domains_normalized.txt > filtered.txt
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
 # 6. Показываем примеры для проверки
@@ -191,7 +210,10 @@ done
 echo "📄 Создаем файлы..."
 
 # 7a. filtered.txt - ЧИСТЫЙ список доменов (для Bloom filter)
-cat filtered.txt > filtered_clean.txt
+cat filtered.txt | sed 's/^www\.//' > filtered_clean.txt
+# Убеждаемся что нет комментариев
+sed -i '/^#/d' filtered_clean.txt
+sed -i '/^$/d' filtered_clean.txt
 # Убеждаемся что нет комментариев
 sed -i '/^#/d' filtered_clean.txt
 sed -i '/^$/d' filtered_clean.txt
