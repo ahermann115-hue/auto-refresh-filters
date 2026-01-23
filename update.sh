@@ -209,11 +209,18 @@ done
 # 7. Создаем ЧИСТЫЙ файл для Bloom filter и blacklist.txt ОТДЕЛЬНО
 echo "📄 Создаем файлы..."
 
-# 7a. filtered.txt - ЧИСТЫЙ список доменов (для Bloom filter)
-cat filtered.txt | sed 's/^www\.//' > filtered_clean.txt
-# Убеждаемся что нет комментариев
-sed -i '/^#/d' filtered_clean.txt
-sed -i '/^$/d' filtered_clean.txt
+# 7a. Создаем чистый файл для Bloom filter
+cp filtered.txt filtered_clean.txt
+# Один раз удаляем комментарии и пустые строки
+sed -i '/^#/d; /^$/d' filtered_clean.txt
+
+# Проверяем что файл не пустой
+if [ ! -s "filtered_clean.txt" ]; then
+    echo "❌ ОШИБКА: filtered_clean.txt пустой!"
+    echo "Проверяем filtered.txt:"
+    head -5 filtered.txt
+    exit 1
+fi
 
 DOMAIN_COUNT=$(wc -l < filtered_clean.txt)
 echo "✅ filtered_clean.txt: $DOMAIN_COUNT доменов (для Bloom filter)"
