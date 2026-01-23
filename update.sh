@@ -281,7 +281,7 @@ echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt)
 
 # 3. Нормализуем домены (удаляем www.) ОДИН раз
 echo "🧹 Нормализуем домены..."
-sed 's/www\.//g' domains.txt > domains_normalized.txt
+sed -E 's/^www\.([^.]+\.)/\1/' domains.txt > domains_normalized.txt
 
 # 4. Применяем whitelist
 echo "🛡️  Применяем whitelist..."
