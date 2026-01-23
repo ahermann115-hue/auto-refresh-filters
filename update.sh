@@ -194,6 +194,16 @@ echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
 # 6. Показываем примеры для проверки
 echo ""
+echo "🔍 ПРОВЕРКА НА WWW.:"
+echo "В filtered.txt:"
+grep '^www\.' filtered.txt | head -3
+echo "Найдено www.: $(grep -c '^www\.' filtered.txt) (должно быть 0)"
+
+echo ""
+echo "В filtered_clean.txt:"
+grep '^www\.' filtered_clean.txt | head -3
+echo "Найдено www.: $(grep -c '^www\.' filtered_clean.txt) (должно быть 0)"
+echo ""
 echo "📊 ПЕРВЫЕ 20 ДОМЕНОВ (примеры блокировки):"
 head -20 filtered.txt | cat -n
 echo ""
