@@ -130,6 +130,38 @@ echo "  • Итого: $(wc -l < domains.txt)"
 # Удаляем временные файлы
 rm -f domains_stevenblack.txt domains_blocklist.txt
 
+echo "🧹 Рекурсивное удаление префиксов..."
+
+normalize_domain() {
+    local domain="$1"
+    
+    # Удаляем пока есть что удалять
+    while true; do
+        local original="$domain"
+        
+        # Удаляем префиксы в порядке вложенности
+        domain="${domain#0.0.0.0 }"
+
+        domain="${domain#www.}"
+        
+        # Если ничего не изменилось - выходим
+        [ "$domain" = "$original" ] && break
+    done
+    
+    echo "$domain"
+}
+
+# Применяем ко всем доменам
+cat domains.txt | while read domain; do
+    normalize_domain "$domain"
+done | \
+    grep -v '^\.' | \
+    grep -v '^$' | \
+    sort -u > domains_normalized.txt
+
+mv domains_normalized.txt domains.txt
+echo "✅ После рекурсивной нормализации: $(wc -l < domains.txt)"
+
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
 
@@ -249,7 +281,7 @@ echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt)
 
 # 3. Нормализуем домены (удаляем www.) ОДИН раз
 echo "🧹 Нормализуем домены..."
-sed 's/^www\.//' domains.txt > domains_normalized.txt
+sed 's/www\.//g' domains.txt > domains_normalized.txt
 
 # 4. Применяем whitelist
 echo "🛡️  Применяем whitelist..."
