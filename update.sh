@@ -132,35 +132,91 @@ rm -f domains_stevenblack.txt domains_blocklist.txt
 
 # 5. Применяем whitelist (исключения)
 echo "🔍 Применяем whitelist..."
-sed 's/^www\.//' domains.txt | \
-    sort -u | \
+
 # НОРМАЛИЗУЕМ домены (удаляем www.)
-sed 's/^www\.//' domains.txt > domains_normalized.txt
-cat > whitelist.txt << 'WHITELIST_EOF'
+
+cat > whitelist_expanded.txt << 'EOF'
 autorefresh.se
+*.autorefresh.se
 google.com
+*.google.com
+www.google.com
+*.www.google.com
 youtube.com
+*.youtube.com
+www.youtube.com
+*.www.youtube.com
 wikipedia.org
+*.wikipedia.org
+www.wikipedia.org
+*.www.wikipedia.org
 vk.com
+*.vk.com
 ok.ru
+*.ok.ru
 mail.ru
+*.mail.ru
 apple.com
+*.apple.com
+www.apple.com
+*.www.apple.com
 microsoft.com
+*.microsoft.com
+www.microsoft.com
+*.www.microsoft.com
 play.google.com
+*.play.google.com
 github.com
+*.github.com
+www.github.com
+*.www.github.com
 stackoverflow.com
+*.stackoverflow.com
+www.stackoverflow.com
+*.www.stackoverflow.com
 reddit.com
+*.reddit.com
+www.reddit.com
+*.www.reddit.com
 twitter.com
+*.twitter.com
+www.twitter.com
+*.www.twitter.com
 facebook.com
+*.facebook.com
+www.facebook.com
+*.www.facebook.com
 instagram.com
+*.instagram.com
+www.instagram.com
+*.www.instagram.com
 whatsapp.com
+*.whatsapp.com
+www.whatsapp.com
+*.www.whatsapp.com
 telegram.org
+*.telegram.org
+www.telegram.org
+*.www.telegram.org
 signal.org
+*.signal.org
+www.signal.org
+*.www.signal.org
 discord.com
+*.discord.com
+www.discord.com
+*.www.discord.com
 slack.com
+*.slack.com
+www.slack.com
+*.www.slack.com
 zoom.us
+*.zoom.us
+www.zoom.us
+*.www.zoom.us
 meet.google.com
-WHITELIST_EOF
+*.meet.google.com
+EOF
 
 awk -F. '{
     if (NF == 2) {
@@ -186,6 +242,8 @@ awk -F. '{
             print "*." domain_no_www
         }
     }
+    sed 's/^www\.//' domains.txt | \
+    sort -u | \
 }' whitelist.txt | sort -u > whitelist_expanded.txt
 
 
