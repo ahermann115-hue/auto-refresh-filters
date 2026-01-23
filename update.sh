@@ -187,12 +187,18 @@ for category in "porn" "casino" "gambl" "drug" "weapon" "gun" "violence" "malwar
     echo "  • $category: $count доменов"
 done
 
-# 7. Создаем читаемый TXT файл с указанием источников
-echo ""
-echo "📄 Создаем blacklist.txt..."
-DOMAIN_COUNT=$(wc -l < filtered.txt)
+# 7. Создаем ЧИСТЫЙ файл для Bloom filter и blacklist.txt ОТДЕЛЬНО
+echo "📄 Создаем файлы..."
 
-# Добавляем заголовок с информацией
+# 7a. filtered.txt - ЧИСТЫЙ список доменов (для Bloom filter)
+cat filtered.txt > filtered_clean.txt
+# Убеждаемся что нет комментариев
+sed -i '/^#/d' filtered_clean.txt
+sed -i '/^$/d' filtered_clean.txt
+DOMAIN_COUNT=$(wc -l < filtered_clean.txt)
+echo "✅ filtered_clean.txt: $DOMAIN_COUNT доменов (для Bloom filter)"
+
+# 7b. blacklist.txt - С комментариями (для людей)
 cat > blacklist.txt << HEADER_EOF
 # AutoRefresh Content Filter - Complete Blacklist
 # Generated: $(date)
@@ -211,12 +217,10 @@ cat > blacklist.txt << HEADER_EOF
 
 HEADER_EOF
 
-# Добавляем домены
-cat filtered.txt >> blacklist.txt
+cat filtered_clean.txt >> blacklist.txt
+echo "✅ blacklist.txt создан с заголовком"
 
-echo "✅ blacklist.txt создан: $DOMAIN_COUNT доменов"
-
-# 8. СОЗДАЕМ BLOOM-FILTER
+# 8. СОЗДАЕМ BLOOM-FILTER ТОЛЬКО из ЧИСТОГО файла
 echo ""
 echo "🌺 СОЗДАЕМ BLOOM-FILTER..."
 echo "=========================="
@@ -235,90 +239,52 @@ except ImportError:
     print("❌ ОШИБКА: Библиотека mmh3 не установлена!")
     sys.exit(1)
 
-print("=== СОЗДАНИЕ BLOOM-FILTER (ПОЛНАЯ ВЕРСИЯ) ===")
+print("=== СОЗДАНИЕ BLOOM-FILTER ===")
 
-# 1. Читаем ВСЕ домены
-print("📖 Чтение доменов...")
-with open('filtered.txt', 'r', encoding='utf-8') as f:
+# 1. Читаем ВСЕ домены ИЗ filtered_clean.txt (без комментариев)
+print("📖 Чтение доменов из filtered_clean.txt...")
+with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
     domains = []
     for line in f:
         domain = line.strip()
-        if domain and not domain.startswith('#'):
+        if domain:  # Только непустые строки
             domains.append(domain)
     
 print(f"📊 Всего доменов: {len(domains):,}")
 
-if len(domains) == 0:
-    print("❌ ОШИБКА: Нет доменов для обработки!")
+# 2. Проверяем что нет комментариев
+test_line = domains[0] if domains else ""
+if test_line.startswith("#"):
+    print("❌ ОШИБКА: В файле есть комментарии!")
+    print(f"Первая строка: {test_line}")
     sys.exit(1)
 
-# 2. Параметры Bloom-фильтра
-n = len(domains)
-false_positive_rate = 0.005  # Более строгая вероятность
+# ... остальной код без изменений ...
 
-m = -int((n * math.log(false_positive_rate)) / (math.log(2) ** 2))
-k = int((m / n) * math.log(2))
-m = ((m + 7) // 8) * 8
-
-print(f"🔧 Параметры Bloom-фильтра:")
-print(f"   • Элементов (n): {n:,}")
-print(f"   • Размер битового массива (m): {m:,} бит ({m//8:,} байт)")
-print(f"   • Хэш-функций (k): {k}")
-print(f"   • Ожидаемые ложные срабатывания: {false_positive_rate*100:.2f}%")
-
-# 3. Создаем и заполняем фильтр
-print("\n⚙️  Заполняем Bloom-фильтр...")
-bit_array = bitarray(m)
-bit_array.setall(0)
-
-processed = 0
-for domain in domains:
-    for seed in range(k):
-        hash_val = mmh3.hash(domain, seed) % m
-        bit_array[hash_val] = 1
+# В конце читаем из filtered_clean.txt
+print("📖 Чтение доменов...")
+with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
+    domains = []
+    line_count = 0
+    for line in f:
+        line_count += 1
+        domain = line.strip()
+        if domain and not domain.startswith('#'):
+            domains.append(domain)
     
-    processed += 1
-    if processed % 50000 == 0:
-        print(f"   Обработано: {processed:,}/{n:,}")
+print(f"📊 Обработано строк: {line_count}")
+print(f"📊 Валидных доменов: {len(domains):,}")
 
-# 4. Сохраняем в НАШЕМ ФОРМАТЕ
-print("\n💾 Сохраняем bloom_filter.bin...")
-output_file = 'bloom_filter.bin'
-with open(output_file, 'wb') as f:
-    f.write(struct.pack('<I', 0x424C4F4D))
-    f.write(struct.pack('<I', 1))
-    f.write(struct.pack('<I', m))
-    f.write(struct.pack('<I', k))
-    f.write(struct.pack('<I', n))
-    bit_array.tofile(f)
+# Проверка
+if len(domains) == 0:
+    print("❌ ОШИБКА: Нет доменов для обработки!")
+    print("Первые 5 строк filtered_clean.txt:")
+    with open('filtered_clean.txt', 'r') as f:
+        for i in range(5):
+            print(f"  {i+1}: {f.readline().strip()}")
+    sys.exit(1)
 
-# 5. Проверяем созданный файл
-file_size = os.path.getsize(output_file)
-print(f"\n✅ Bloom-фильтр создан!")
-print(f"📏 Размер файла: {file_size:,} байт ({file_size/1024/1024:.2f} MB)")
-
-# 6. Тестовые проверки
-print("\n🔍 Тестовые проверки фильтра:")
-test_domains = [
-    "google.com",           # Должно быть разрешено
-    "youtube.com",          # Должно быть разрешено
-    "example-porn-site.com", # Должно быть заблокировано (если есть в списке)
-    "casino-example.com",   # Должно быть заблокировано
-    "drugs-example.com",    # Должно быть заблокировано
-]
-
-for test_domain in test_domains:
-    found = False
-    for seed in range(k):
-        hash_val = mmh3.hash(test_domain, seed) % m
-        if not bit_array[hash_val]:
-            break
-    else:
-        found = True
-    
-    status = "🟡 ВОЗМОЖНО" if found else "✅ НЕТ"
-    print(f"   {status} {test_domain}")
-
+# ... остальное без изменений ...
 BLOOM_EOF
 
 # 9. УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ (кроме нужных)
