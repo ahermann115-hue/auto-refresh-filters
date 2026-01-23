@@ -129,179 +129,106 @@ echo "  • Итого: $(wc -l < domains.txt)"
 
 # Удаляем временные файлы
 rm -f domains_stevenblack.txt domains_blocklist.txt
-echo "🔍 ДИАГНОСТИКА domains.txt (ПЕРЕД нормализацией):"
-echo "================================================"
 
-# 1. Сохраняем копию для сравнения
-cp domains.txt domains_before_normalize.txt
-
-# 2. Показываем что внутри
-echo "📊 СТАТИСТИКА domains.txt:"
-TOTAL=$(wc -l < domains.txt)
-echo "  • Всего доменов: $TOTAL"
-echo "  • Начинаются с '0': $(grep -c '^0' domains.txt)"
-echo "  • Начинаются с '0.': $(grep -c '^0\.' domains.txt)"
-echo "  • Начинаются с '0.0.': $(grep -c '^0\.0\.' domains.txt)"
-echo "  • Начинаются с '0.0.0.': $(grep -c '^0\.0\.0\.' domains.txt)"
-echo "  • Начинаются с '0.0.0.0': $(grep -c '^0\.0\.0\.0' domains.txt)"
-echo "  • Начинаются с 'www.': $(grep -c '^www\.' domains.txt)"
-echo "  • Начинаются с '-': $(grep -c '^-' domains.txt)"
-
-# 3. Примеры для понимания
-echo ""
-echo "📝 ПРИМЕРЫ ДОМЕНОВ:"
-echo "Первые 10 доменов:"
-head -10 domains.txt | cat -n
-echo ""
-echo "Домены начинающиеся с '0.0.0.0' (если есть):"
-grep '^0\.0\.0\.0' domains.txt | head -5
-echo ""
-echo "Домены начинающиеся с 'www.' (первые 5):"
-grep '^www\.' domains.txt | head -5
-
-# 4. Тест функции normalize_domain на примерах
-echo ""
-echo "🧪 ТЕСТ ФУНКЦИИ normalize_domain:"
-
-normalize_domain() {
-    local domain="$1"
-    
-    # Удаляем пока есть что удалять
-    while true; do
-        local original="$domain"
-        
-        # Удаляем префиксы в порядке вложенности
-        domain="${domain#0.0.0.0 }"
-        domain="${domain#www.}"
-        
-        # Если ничего не изменилось - выходим
-        [ "$domain" = "$original" ] && break
-    done
-    
-    echo "$domain"
-}
-
-echo "Тест на примерах из domains.txt:"
-for test in $(head -5 domains.txt); do
-    result=$(normalize_domain "$test")
-    if [ "$test" != "$result" ]; then
-        echo "  $test → $result  (ИЗМЕНИЛСЯ!)"
-    else
-        echo "  $test → $result  (не изменился)"
-    fi
-done
-
-echo ""
-echo "🔍 Проверяем создает ли функция пустые строки:"
-# Тест на всех доменах (первые 100 для скорости)
-head -100 domains.txt | while read domain; do
-    result=$(normalize_domain "$domain")
-    if [ -z "$result" ]; then
-        echo "  ВНИМАНИЕ: '$domain' → ПУСТАЯ СТРОКА!"
-    fi
-done
-
-echo "================================================"
-echo "ПРОДОЛЖАЕМ С НОРМАЛИЗАЦИЕЙ..."
-
-echo "🧹 Рекурсивное удаление префиксов..."
-
-normalize_domain() {
-    local domain="$1"
-    
-    # Удаляем пока есть что удалять
-    while true; do
-        local original="$domain"
-        
-        # Удаляем префиксы в порядке вложенности
-        domain="${domain#0.0.0.0 }"  # ← ПРОБЕЛ вместо точки!
-        domain="${domain#www.}"
-        
-        # Если ничего не изменилось - выходим
-        [ "$domain" = "$original" ] && break
-    done
-    
-    echo "$domain"
-}
-
-# Применяем ко всем доменам
-cat domains.txt | while read domain; do
-  #  normalize_domain "$domain"
-done | \
-    grep -v '^\.' | \
-    grep -v '^$' | \
-    sort -u > domains_normalized.txt
-
-mv domains_normalized.txt domains.txt
-echo "✅ После рекурсивной нормализации: $(wc -l < domains.txt)"
-
-# 5. Применяем whitelist (исключения)
-echo "🔍 Применяем whitelist..."
-
-# НОРМАЛИЗУЕМ домены (удаляем www.)
-
-cat > whitelist.txt << 'WHITELIST_EOF'
-autorefresh.se
-google.com
-youtube.com
-wikipedia.org
-vk.com
-ok.ru
-mail.ru
-apple.com
-microsoft.com
-play.google.com
-github.com
-stackoverflow.com
-reddit.com
-twitter.com
-facebook.com
-instagram.com
-whatsapp.com
-telegram.org
-signal.org
-discord.com
-slack.com
-zoom.us
-meet.google.com
-WHITELIST_EOF
-
-# 3. Нормализуем домены (удаляем www.) ОДИН раз
-echo "🧹 Нормализуем домены..."
+# 5. Нормализуем домены и применяем whitelist
+echo "🧹 Нормализуем домены (удаляем начальные www.)..."
 sed 's/^www\.//' domains.txt > domains_normalized.txt
 
-# 4. Применяем whitelist
+echo "🔍 Применяем whitelist..."
+
+# Создаем расширенный whitelist
+cat > whitelist_expanded.txt << 'WHITELIST_EXP_EOF'
+autorefresh.se
+*.autorefresh.se
+google.com
+*.google.com
+www.google.com
+*.www.google.com
+youtube.com
+*.youtube.com
+www.youtube.com
+*.www.youtube.com
+wikipedia.org
+*.wikipedia.org
+www.wikipedia.org
+*.www.wikipedia.org
+vk.com
+*.vk.com
+ok.ru
+*.ok.ru
+mail.ru
+*.mail.ru
+apple.com
+*.apple.com
+www.apple.com
+*.www.apple.com
+microsoft.com
+*.microsoft.com
+www.microsoft.com
+*.www.microsoft.com
+play.google.com
+*.play.google.com
+github.com
+*.github.com
+www.github.com
+*.www.github.com
+stackoverflow.com
+*.stackoverflow.com
+www.stackoverflow.com
+*.www.stackoverflow.com
+reddit.com
+*.reddit.com
+www.reddit.com
+*.www.reddit.com
+twitter.com
+*.twitter.com
+www.twitter.com
+*.www.twitter.com
+facebook.com
+*.facebook.com
+www.facebook.com
+*.www.facebook.com
+instagram.com
+*.instagram.com
+www.instagram.com
+*.www.instagram.com
+whatsapp.com
+*.whatsapp.com
+www.whatsapp.com
+*.www.whatsapp.com
+telegram.org
+*.telegram.org
+www.telegram.org
+*.www.telegram.org
+signal.org
+*.signal.org
+www.signal.org
+*.www.signal.org
+discord.com
+*.discord.com
+www.discord.com
+*.www.discord.com
+slack.com
+*.slack.com
+www.slack.com
+*.www.slack.com
+zoom.us
+*.zoom.us
+www.zoom.us
+*.www.zoom.us
+meet.google.com
+*.meet.google.com
+WHITELIST_EXP_EOF
+
+echo "✅ whitelist_expanded.txt создан: $(wc -l < whitelist_expanded.txt) записей"
+
+# Применяем whitelist
 echo "🛡️  Применяем whitelist..."
-grep -v -F -f whitelist.txt domains_normalized.txt > filtered.txt
+grep -v -F -f whitelist_expanded.txt domains_normalized.txt > filtered.txt
 
 echo "✅ После whitelist: $(wc -l < filtered.txt) доменов"
 
-echo "🔍 ОТЛАДКА: Проверяем что происходит..."
-echo "1. domains.txt первые 3:"
-head -3 domains.txt
-echo ""
-echo "2. domains_normalized.txt первые 3:"
-head -3 domains_normalized.txt
-echo ""
-echo "3. filtered.txt первые 3:"
-head -3 filtered.txt
-echo ""
-echo "4. Количество www. в каждом файле:"
-echo "   domains.txt: $(grep -c '^www\.' domains.txt)"
-echo "   domains_normalized.txt: $(grep -c '^www\.' domains_normalized.txt)"
-echo "   filtered.txt: $(grep -c '^www\.' filtered.txt)"
-
 # 6. Показываем примеры для проверки
-echo ""
-echo "🔍 ПРОВЕРКА НА WWW.:"
-echo "В filtered.txt:"
-grep '^www\.' filtered.txt | head -3
-echo "Найдено www.: $(grep -c '^www\.' filtered.txt) (должно быть 0)"
-
-echo ""
-echo "В filtered_clean.txt:"
-grep '^www\.' filtered_clean.txt | head -3
-echo "Найдено www.: $(grep -c '^www\.' filtered_clean.txt) (должно быть 0)"
 echo ""
 echo "📊 ПЕРВЫЕ 20 ДОМЕНОВ (примеры блокировки):"
 head -20 filtered.txt | cat -n
@@ -320,7 +247,7 @@ echo "📄 Создаем файлы..."
 
 # 7a. Создаем чистый файл для Bloom filter
 cp filtered.txt filtered_clean.txt
-# Один раз удаляем комментарии и пустые строки
+# Удаляем комментарии и пустые строки
 sed -i '/^#/d; /^$/d' filtered_clean.txt
 
 # Проверяем что файл не пустой
@@ -356,7 +283,10 @@ HEADER_EOF
 cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
 
-# 8
+# 8. СОЗДАЕМ BLOOM-FILTER
+echo ""
+echo "🌺 СОЗДАЕМ BLOOM-FILTER..."
+echo "=========================="
 
 python3 << 'BLOOM_EOF'
 import struct
@@ -470,8 +400,7 @@ BLOOM_EOF
 echo ""
 echo "🧹 Очистка временных файлов..."
 rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
-rm -f raw_combined.txt whitelist.txt filtered.txt filtered_clean.txt domains_normalized.txt
-# Уже удалили ранее: domains_stevenblack.txt domains_blocklist.txt domains.txt
+rm -f raw_combined.txt whitelist_expanded.txt filtered.txt filtered_clean.txt domains_normalized.txt domains.txt
 echo "✅ Временные файлы удалены"
 
 # 10. ФИНАЛЬНАЯ СТАТИСТИКА
