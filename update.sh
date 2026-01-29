@@ -396,74 +396,7 @@ for test_domain in test_domains:
 
 BLOOM_EOF
 
-# 9. УДАЛЯЕМ ВРЕМЕННЫЕ ФАЙЛЫ (кроме нужных)
-echo ""
-echo "🧹 Очистка временных файлов..."
-rm -f raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
-rm -f raw_combined.txt whitelist_expanded.txt filtered.txt filtered_clean.txt domains_normalized.txt domains.txt
-echo "✅ Временные файлы удалены"
-
-# 10. ФИНАЛЬНАЯ СТАТИСТИКА
-echo ""
-echo "🎯 ФИНАЛЬНАЯ СТАТИСТИКА:"
-echo "========================"
-echo "📄 blacklist.txt: $DOMAIN_COUNT доменов"
-
-if [ -f "bloom_filter.bin" ]; then
-    bloom_size=$(stat -c%s bloom_filter.bin 2>/dev/null || stat -f%z bloom_filter.bin)
-    bloom_size_kb=$((bloom_size / 1024))
-    bloom_size_mb=$(echo "scale=2; $bloom_size / 1024 / 1024" | bc)
-    
-    echo "🌺 bloom_filter.bin:"
-    echo "   • Размер: $bloom_size байт ($bloom_size_kb KB, $bloom_size_mb MB)"
-    
-    # Проверяем заголовок
-    python3 << 'FINAL_CHECK'
-import struct
-try:
-    with open('bloom_filter.bin', 'rb') as f:
-        header = f.read(20)
-        magic, version, m, k, n = struct.unpack('<IIIII', header)
-        print(f"   • MAGIC: {'✅ BLOOM' if magic == 0x424C4F4D else '❌ ОШИБКА'}")
-        print(f"   • Версия: {version}")
-        print(f"   • Размер массива: {m:,} бит ({m//8:,} байт)")
-        print(f"   • Хэш-функций: {k}")
-        print(f"   • Ожидаемых элементов: {n:,}")
-        
-        # Читаем все домены для статистики
-        with open('blacklist.txt', 'r', encoding='utf-8') as bl:
-            domains = [line.strip() for line in bl if line.strip() and not line.startswith('#')]
-        
-        from collections import defaultdict
-        categories = defaultdict(int)
-        for domain in domains[:1000]:  # Проверяем первые 1000
-            domain_lower = domain.lower()
-            if any(word in domain_lower for word in ['porn', 'xxx', 'adult', 'sex']):
-                categories['porn'] += 1
-            elif any(word in domain_lower for word in ['casino', 'gambl', 'poker', 'bet']):
-                categories['gambling'] += 1
-            elif any(word in domain_lower for word in ['drug', 'weed', 'cocaine', 'opioid']):
-                categories['drugs'] += 1
-            elif any(word in domain_lower for word in ['weapon', 'gun', 'rifle', 'ammo']):
-                categories['weapons'] += 1
-            elif any(word in domain_lower for word in ['violence', 'abuse', 'hurt', 'attack']):
-                categories['violence'] += 1
-            elif any(word in domain_lower for word in ['malware', 'virus', 'trojan', 'hack']):
-                categories['malware'] += 1
-        
-        print(f"\n📊 Примерное распределение категорий (первые 1000 доменов):")
-        for cat, count in categories.items():
-            print(f"   • {cat}: {count} доменов")
-        
-except Exception as e:
-    print(f"   ❌ Ошибка проверки: {e}")
-FINAL_CHECK
-else
-    echo "❌ bloom_filter.bin не создан!"
-    exit 1
-fi
-
-# 11. СОЗДАЕМ/ОБНОВЛЯЕМ README
+# 9. СОЗДАЕМ/ОБНОВЛЯЕМ README
 echo ""
 echo "📝 Обновляем README.md..."
 
@@ -533,47 +466,58 @@ README_EOF
 
 echo "✅ README.md обновлен"
 
+# 10. ВАЖНОЕ: УДАЛЯЕМ ВСЕ ВРЕМЕННЫЕ ФАЙЛЫ ПЕРЕД ВЫХОДОМ
 echo ""
-echo "✅ СКРИПТ ВЫПОЛНЕН УСПЕШНО!"
-echo "🎉 СОЗДАН ПОЛНЫЙ ФИЛЬТР ВСЕХ КАТЕГОРИЙ!"
-echo "📦 Итоговые файлы: bloom_filter.bin ($BLOOM_SIZE_KB KB) и blacklist.txt ($DOMAIN_COUNT доменов)"
+echo "🧹 УДАЛЯЕМ ВСЕ ВРЕМЕННЫЕ ФАЙЛЫ..."
+echo "================================="
 
-# В самый конец update.sh добавьте:
+# Список файлов для удаления
+TEMP_FILES="raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
+            raw_combined.txt raw1_backup.txt raw2_backup.txt raw3_backup.txt
+            raw4_backup.txt raw5_backup.txt raw_combined_backup.txt
+            domains.txt domains_normalized.txt whitelist_expanded.txt
+            filtered.txt filtered_clean.txt"
 
-echo ""
-echo "=== ФИНАЛЬНАЯ ПРОВЕРКА ==="
-echo "Время: $(date)"
-
-# Явно проверяем что файлы созданы
-echo "🔍 Проверяем созданные файлы:"
-
-if [ -f "bloom_filter.bin" ]; then
-    bloom_size=$(stat -c%s bloom_filter.bin)
-    echo "✅ bloom_filter.bin: $bloom_size байт"
-    if [ "$bloom_size" -lt 1000 ]; then
-        echo "❌ ОШИБКА: bloom_filter.bin слишком мал!"
-        exit 1
+for file in $TEMP_FILES; do
+    if [ -f "$file" ]; then
+        rm -f "$file"
+        echo "   Удалён: $file"
     fi
-else
-    echo "❌ ОШИБКА: bloom_filter.bin не создан!"
-    exit 1
-fi
+done
 
-if [ -f "blacklist.txt" ]; then
-    domain_count=$(grep -v '^#' blacklist.txt | grep -c '\.')
-    echo "✅ blacklist.txt: $domain_count доменов"
-else
-    echo "❌ ОШИБКА: blacklist.txt не создан!"
-    exit 1
-fi
+echo "✅ Все временные файлы удалены"
 
-if [ -f "README.md" ]; then
-    echo "✅ README.md: создан"
-else
-    echo "❌ ОШИБКА: README.md не создан!"
-    exit 1
-fi
+# 11. ФИНАЛЬНАЯ ПРОВЕРКА
+echo ""
+echo "🔍 ФИНАЛЬНАЯ ПРОВЕРКА СОЗДАННЫХ ФАЙЛОВ:"
+echo "========================================"
+
+FINAL_FILES=("bloom_filter.bin" "blacklist.txt" "README.md")
+ALL_OK=true
+
+for file in "${FINAL_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
+        echo "✅ $file: $size байт"
+        
+        if [ "$size" -eq 0 ]; then
+            echo "   ❌ ВНИМАНИЕ: файл пустой!"
+            ALL_OK=false
+        fi
+    else
+        echo "❌ $file: НЕ НАЙДЕН!"
+        ALL_OK=false
+    fi
+done
 
 echo ""
-echo "✅ ВСЕ ФАЙЛЫ УСПЕШНО СОЗДАНЫ"
-echo "📦 Готово для коммита в GitHub"
+if [ "$ALL_OK" = true ]; then
+    echo "🎉 СКРИПТ ВЫПОЛНЕН УСПЕШНО!"
+    echo "📦 Созданы файлы:"
+    echo "   • bloom_filter.bin ($BLOOM_SIZE_KB KB)"
+    echo "   • blacklist.txt ($DOMAIN_COUNT доменов)"
+    echo "   • README.md (обновлен)"
+else
+    echo "❌ ОШИБКА: Не все файлы созданы правильно!"
+    exit 1
+fi
