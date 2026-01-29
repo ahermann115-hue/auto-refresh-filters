@@ -39,7 +39,7 @@ jobs:
           echo "🚀 Запускаем скрипт обновления..."
           ./update.sh
           
-          echo "📊 Получаем статистику..."
+          echo "📊 Проверяем созданные файлы..."
           
           # Проверяем bloom_filter.bin
           if [ -f "bloom_filter.bin" ]; then
@@ -67,119 +67,108 @@ jobs:
             exit 1
           fi
           
+          # Проверяем что нет лишних файлов
+          echo ""
+          echo "🧹 Проверяем временные файлы..."
+          TEMP_FILES=$(ls raw*.txt raw*_backup.txt domains*.txt filtered*.txt whitelist*.txt 2>/dev/null | wc -l)
+          if [ "$TEMP_FILES" -gt 0 ]; then
+            echo "⚠️  Найдены временные файлы: $TEMP_FILES"
+            echo "Они будут удалены перед коммитом"
+          fi
+          
           echo "✅ Все файлы созданы успешно"
 
-      - name: 📝 Commit and Push Files
+      - name: 📝 Clean and Commit
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
-          echo "=== КОММИТ ИЗМЕНЕНИЙ ==="
-          echo "Текущая директория: $(pwd)"
+          echo "=== ОЧИСТКА И КОММИТ ==="
           echo ""
           
-          # Настраиваем git
+          # 1. УДАЛЯЕМ ВСЕ ВРЕМЕННЫЕ ФАЙЛЫ
+          echo "🧹 Удаляем все временные файлы..."
+          rm -f raw*.txt raw*_backup.txt domains*.txt filtered*.txt whitelist*.txt 2>/dev/null || true
+          
+          echo ""
+          echo "📁 Оставшиеся файлы в директории:"
+          ls -la
+          
+          # 2. Настраиваем git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          # 1. Показываем состояние файлов
-          echo "🔍 Проверяем файлы:"
-          ls -la *.bin *.txt *.md
-          
+          # 3. ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ bloom_filter.bin
           echo ""
-          echo "📏 Размеры файлов:"
-          for file in bloom_filter.bin blacklist.txt README.md; do
-            if [ -f "$file" ]; then
-              size=$(stat -c%s "$file")
-              size_kb=$((size / 1024))
-              echo "  $file: $size байт ($size_kb KB)"
+          echo "🔄 Принудительно обновляем bloom_filter.bin в git..."
+          
+          # Сохраняем хэш файла для проверки
+          OLD_HASH=$(git hash-object bloom_filter.bin 2>/dev/null || echo "none")
+          NEW_HASH=$(sha256sum bloom_filter.bin | cut -d' ' -f1 2>/dev/null || echo "none")
+          
+          echo "   Старый хэш в git: ${OLD_HASH:0:8}..."
+          echo "   Новый хэш файла: ${NEW_HASH:0:8}..."
+          
+          if [ "$OLD_HASH" = "$NEW_HASH" ] && [ "$OLD_HASH" != "none" ]; then
+            echo "   ⚠️  Хэши совпадают, но всё равно обновляем"
+          fi
+          
+          # 4. Удаляем bloom_filter.bin из git и добавляем заново
+          git rm --cached bloom_filter.bin 2>/dev/null || true
+          
+          # 5. Добавляем ВСЕ основные файлы
+          echo ""
+          echo "➕ Добавляем файлы в git..."
+          git add bloom_filter.bin blacklist.txt README.md
+          
+          # 6. Проверяем что bloom_filter.bin добавлен
+          echo ""
+          echo "🔍 Проверяем статус файлов:"
+          git status --porcelain | while read status file; do
+            if [ "$file" = "bloom_filter.bin" ]; then
+              echo "   ✅ bloom_filter.bin: $status"
+            elif [ "$file" = "blacklist.txt" ]; then
+              echo "   ✅ blacklist.txt: $status"
+            elif [ "$file" = "README.md" ]; then
+              echo "   ✅ README.md: $status"
             else
-              echo "  ❌ $file: НЕ НАЙДЕН!"
-              exit 1
+              echo "   📄 $file: $status"
             fi
           done
           
-          echo ""
-          echo "🔧 Настраиваем git для бинарных файлов..."
-          # Убеждаемся что git отслеживает бинарные файлы
-          git config core.autocrlf false
-          
-          # 2. Проверяем текущий статус git
-          echo ""
-          echo "📊 Git статус ДО:"
-          git status --short
-          
-          # 3. ОЧЕНЬ ВАЖНО: Сначала удаляем bloom_filter.bin из git
-          echo ""
-          echo "🔄 Подготавливаем bloom_filter.bin для коммита..."
-          
-          # Проверяем отслеживается ли файл
-          if git ls-files --error-unmatch bloom_filter.bin >/dev/null 2>&1; then
-            echo "  bloom_filter.bin отслеживается git"
-            echo "  Удаляем из индекса..."
-            git rm --cached bloom_filter.bin
-          else
-            echo "  bloom_filter.bin НЕ отслеживается git"
-          fi
-          
-          # 4. Добавляем ВСЕ файлы
-          echo ""
-          echo "➕ Добавляем файлы в git..."
-          
-          # Сначала bloom_filter.bin отдельно
-          git add bloom_filter.bin
-          
-          # Проверяем добавился ли
-          BLOOM_STATUS=$(git status --porcelain bloom_filter.bin)
-          if [ -z "$BLOOM_STATUS" ]; then
-            echo "⚠️  bloom_filter.bin не добавился, пробуем с -f..."
-            git add -f bloom_filter.bin
-          fi
-          
-          # Добавляем остальные
-          git add blacklist.txt README.md
-          
-          # 5. Проверяем что добавилось
-          echo ""
-          echo "📋 Git статус ПОСЛЕ добавления:"
-          git status --short
-          
-          # 6. Коммитим если есть изменения
-          echo ""
-          echo "🔍 Проверяем изменения для коммита..."
-          
-          if git diff --cached --quiet; then
-            echo "ℹ️  Нет изменений для коммита"
-            echo "Пробуем принудительно обновить файлы..."
-            
-            # Создаем метку времени чтобы git увидел изменение
-            TIMESTAMP=$(date +%s)
-            echo "# Updated at $TIMESTAMP" >> README.md
-            git add README.md bloom_filter.bin blacklist.txt
-            
-            if git diff --cached --quiet; then
-              echo "✅ Всё уже актуально. Выходим."
-              exit 0
-            fi
-          fi
-          
-          # 7. Создаем коммит
+          # 7. Коммит
           echo ""
           echo "💾 Создаем коммит..."
           
           DATE=$(date +'%Y-%m-%d')
-          DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.')
-          BLOOM_SIZE=$(stat -c%s bloom_filter.bin)
+          DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.' 2>/dev/null || echo "0")
+          BLOOM_SIZE=$(stat -c%s bloom_filter.bin 2>/dev/null || echo "0")
           BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
           
-          echo "📊 Данные коммита:"
-          echo "  • Дата: $DATE"
-          echo "  • Доменов: $DOMAIN_COUNT"
-          echo "  • Размер фильтра: $BLOOM_SIZE_KB KB"
+          echo "📊 Статистика:"
+          echo "   • Дата: $DATE"
+          echo "   • Доменов: $DOMAIN_COUNT"
+          echo "   • Размер фильтра: $BLOOM_SIZE_KB KB"
           
-          COMMIT_MSG="Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
-          echo "📝 Сообщение: $COMMIT_MSG"
-          
-          git commit -m "$COMMIT_MSG"
+          # Проверяем есть ли изменения
+          if git diff --cached --quiet; then
+            echo "ℹ️  Нет изменений для коммита"
+            echo "🕐 Добавляем метку времени..."
+            echo "" >> README.md
+            echo "<!-- Last update: $(date) -->" >> README.md
+            git add README.md
+            
+            if git diff --cached --quiet; then
+              echo "✅ Всё уже актуально"
+              exit 0
+            else
+              echo "📝 Коммитим только обновление времени"
+              git commit -m "Update timestamp - $(date +'%Y-%m-%d %H:%M')"
+            fi
+          else
+            COMMIT_MSG="Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
+            echo "📝 Коммит: $COMMIT_MSG"
+            git commit -m "$COMMIT_MSG"
+          fi
           
           # 8. Пушим
           echo ""
@@ -187,14 +176,11 @@ jobs:
           git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
           
           echo ""
-          echo "✅ КОММИТ ВЫПОЛНЕН УСПЕШНО!"
-          echo "🎉 Все файлы должны быть обновлены в репозитории"
-          
-      - name: ✅ Final Check
+          echo "✅ ВСЁ ГОТОВО!"
+          echo "🎉 Файлы должны быть обновлены в репозитории"
+
+      - name: ✅ Final Status
         run: |
-          echo "=== ФИНАЛЬНАЯ ПРОВЕРКА ==="
-          echo "✅ Workflow выполнен успешно"
-          echo "🕐 Время: $(date)"
-          echo ""
-          echo "Если bloom_filter.bin всё ещё не обновляется,"
-          echo "проверьте настройки .gitattributes и .gitignore"
+          echo "=== ФИНАЛЬНЫЙ СТАТУС ==="
+          echo "✅ Workflow выполнен: $(date)"
+          echo "📅 Следующее обновление: завтра в 00:00 UTC"
