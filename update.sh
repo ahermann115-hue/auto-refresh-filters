@@ -537,3 +537,43 @@ echo ""
 echo "✅ СКРИПТ ВЫПОЛНЕН УСПЕШНО!"
 echo "🎉 СОЗДАН ПОЛНЫЙ ФИЛЬТР ВСЕХ КАТЕГОРИЙ!"
 echo "📦 Итоговые файлы: bloom_filter.bin ($BLOOM_SIZE_KB KB) и blacklist.txt ($DOMAIN_COUNT доменов)"
+
+# В самый конец update.sh добавьте:
+
+echo ""
+echo "=== ФИНАЛЬНАЯ ПРОВЕРКА ==="
+echo "Время: $(date)"
+
+# Явно проверяем что файлы созданы
+echo "🔍 Проверяем созданные файлы:"
+
+if [ -f "bloom_filter.bin" ]; then
+    bloom_size=$(stat -c%s bloom_filter.bin)
+    echo "✅ bloom_filter.bin: $bloom_size байт"
+    if [ "$bloom_size" -lt 1000 ]; then
+        echo "❌ ОШИБКА: bloom_filter.bin слишком мал!"
+        exit 1
+    fi
+else
+    echo "❌ ОШИБКА: bloom_filter.bin не создан!"
+    exit 1
+fi
+
+if [ -f "blacklist.txt" ]; then
+    domain_count=$(grep -v '^#' blacklist.txt | grep -c '\.')
+    echo "✅ blacklist.txt: $domain_count доменов"
+else
+    echo "❌ ОШИБКА: blacklist.txt не создан!"
+    exit 1
+fi
+
+if [ -f "README.md" ]; then
+    echo "✅ README.md: создан"
+else
+    echo "❌ ОШИБКА: README.md не создан!"
+    exit 1
+fi
+
+echo ""
+echo "✅ ВСЕ ФАЙЛЫ УСПЕШНО СОЗДАНЫ"
+echo "📦 Готово для коммита в GitHub"
