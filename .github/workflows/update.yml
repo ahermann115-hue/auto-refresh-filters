@@ -22,7 +22,7 @@ jobs:
             echo "ERROR: AUTO_UPDATE_TOKEN not set!"
             exit 1
           fi
-          echo "Token is available"
+          echo "✅ Token is available"
 
       - name: 🐍 Setup Python
         run: |
@@ -39,25 +39,15 @@ jobs:
           echo "🚀 Запускаем скрипт обновления..."
           ./update.sh
           
-          # СНАЧАЛА создаем файлы, ПОТОМ получаем статистику
           echo "📊 Получаем статистику..."
           
-          if [ -f "blacklist.txt" ]; then
-            DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.')
-            echo "✅ Доменов найдено: $DOMAIN_COUNT"
-            echo "DOMAIN_COUNT=${DOMAIN_COUNT}" >> $GITHUB_OUTPUT
-          else
-            echo "❌ blacklist.txt не найден!"
-            exit 1
-          fi
-          
+          # Проверяем bloom_filter.bin
           if [ -f "bloom_filter.bin" ]; then
             BLOOM_SIZE=$(stat -c%s bloom_filter.bin)
             BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
-            echo "✅ Размер фильтра: $BLOOM_SIZE байт ($BLOOM_SIZE_KB KB)"
+            echo "✅ bloom_filter.bin: $BLOOM_SIZE байт ($BLOOM_SIZE_KB KB)"
             echo "BLOOM_SIZE_KB=${BLOOM_SIZE_KB}" >> $GITHUB_OUTPUT
             
-            # Проверяем что файл не пустой
             if [ "$BLOOM_SIZE" -lt 1000 ]; then
               echo "❌ ОШИБКА: bloom_filter.bin слишком мал!"
               exit 1
@@ -67,58 +57,144 @@ jobs:
             exit 1
           fi
           
+          # Проверяем blacklist.txt
+          if [ -f "blacklist.txt" ]; then
+            DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.')
+            echo "✅ blacklist.txt: $DOMAIN_COUNT доменов"
+            echo "DOMAIN_COUNT=${DOMAIN_COUNT}" >> $GITHUB_OUTPUT
+          else
+            echo "❌ blacklist.txt не найден!"
+            exit 1
+          fi
+          
           echo "✅ Все файлы созданы успешно"
 
-      # ВАЖНО: Этот шаг ДОЛЖЕН быть ПОСЛЕ run_update
       - name: 📝 Commit and Push Files
         env:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
-          echo "📝 Начинаем коммит файлов..."
-          
-          # Проверяем что файлы действительно созданы
-          echo "🔍 Проверяем наличие файлов:"
-          ls -la bloom_filter.bin blacklist.txt README.md 2>/dev/null || {
-            echo "❌ Файлы не найдены!"
-            exit 1
-          }
+          echo "=== КОММИТ ИЗМЕНЕНИЙ ==="
+          echo "Текущая директория: $(pwd)"
+          echo ""
           
           # Настраиваем git
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           
-          # ВАЖНО: Теперь добавляем файлы ПОСЛЕ их создания
-          echo "📤 Добавляем файлы в git..."
-          git add bloom_filter.bin blacklist.txt README.md
+          # 1. Показываем состояние файлов
+          echo "🔍 Проверяем файлы:"
+          ls -la *.bin *.txt *.md
           
-          # Проверяем есть ли изменения
-          if git diff --cached --quiet; then
-            echo "ℹ️ Нет изменений для коммита"
-            echo "✅ Workflow завершен без изменений"
-            exit 0
+          echo ""
+          echo "📏 Размеры файлов:"
+          for file in bloom_filter.bin blacklist.txt README.md; do
+            if [ -f "$file" ]; then
+              size=$(stat -c%s "$file")
+              size_kb=$((size / 1024))
+              echo "  $file: $size байт ($size_kb KB)"
+            else
+              echo "  ❌ $file: НЕ НАЙДЕН!"
+              exit 1
+            fi
+          done
+          
+          echo ""
+          echo "🔧 Настраиваем git для бинарных файлов..."
+          # Убеждаемся что git отслеживает бинарные файлы
+          git config core.autocrlf false
+          
+          # 2. Проверяем текущий статус git
+          echo ""
+          echo "📊 Git статус ДО:"
+          git status --short
+          
+          # 3. ОЧЕНЬ ВАЖНО: Сначала удаляем bloom_filter.bin из git
+          echo ""
+          echo "🔄 Подготавливаем bloom_filter.bin для коммита..."
+          
+          # Проверяем отслеживается ли файл
+          if git ls-files --error-unmatch bloom_filter.bin >/dev/null 2>&1; then
+            echo "  bloom_filter.bin отслеживается git"
+            echo "  Удаляем из индекса..."
+            git rm --cached bloom_filter.bin
+          else
+            echo "  bloom_filter.bin НЕ отслеживается git"
           fi
           
-          # Создаем коммит
+          # 4. Добавляем ВСЕ файлы
+          echo ""
+          echo "➕ Добавляем файлы в git..."
+          
+          # Сначала bloom_filter.bin отдельно
+          git add bloom_filter.bin
+          
+          # Проверяем добавился ли
+          BLOOM_STATUS=$(git status --porcelain bloom_filter.bin)
+          if [ -z "$BLOOM_STATUS" ]; then
+            echo "⚠️  bloom_filter.bin не добавился, пробуем с -f..."
+            git add -f bloom_filter.bin
+          fi
+          
+          # Добавляем остальные
+          git add blacklist.txt README.md
+          
+          # 5. Проверяем что добавилось
+          echo ""
+          echo "📋 Git статус ПОСЛЕ добавления:"
+          git status --short
+          
+          # 6. Коммитим если есть изменения
+          echo ""
+          echo "🔍 Проверяем изменения для коммита..."
+          
+          if git diff --cached --quiet; then
+            echo "ℹ️  Нет изменений для коммита"
+            echo "Пробуем принудительно обновить файлы..."
+            
+            # Создаем метку времени чтобы git увидел изменение
+            TIMESTAMP=$(date +%s)
+            echo "# Updated at $TIMESTAMP" >> README.md
+            git add README.md bloom_filter.bin blacklist.txt
+            
+            if git diff --cached --quiet; then
+              echo "✅ Всё уже актуально. Выходим."
+              exit 0
+            fi
+          fi
+          
+          # 7. Создаем коммит
+          echo ""
           echo "💾 Создаем коммит..."
           
-          # Получаем данные ИЗ ФАЙЛОВ (не из окружения)
-          DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.' 2>/dev/null || echo "0")
-          BLOOM_SIZE=$(stat -c%s bloom_filter.bin 2>/dev/null || echo "0")
-          BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
           DATE=$(date +'%Y-%m-%d')
+          DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.')
+          BLOOM_SIZE=$(stat -c%s bloom_filter.bin)
+          BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
           
-          echo "📊 Статистика для коммита:"
+          echo "📊 Данные коммита:"
           echo "  • Дата: $DATE"
           echo "  • Доменов: $DOMAIN_COUNT"
           echo "  • Размер фильтра: $BLOOM_SIZE_KB KB"
           
-          # Простое сообщение коммита
-          git commit -m "Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
+          COMMIT_MSG="Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
+          echo "📝 Сообщение: $COMMIT_MSG"
           
+          git commit -m "$COMMIT_MSG"
+          
+          # 8. Пушим
+          echo ""
           echo "🚀 Пушим изменения..."
           git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
           
-          echo "✅ Файлы успешно обновлены!"
-          echo "   • bloom_filter.bin: $BLOOM_SIZE байт"
-          echo "   • blacklist.txt: $DOMAIN_COUNT доменов"
-          echo "   • README.md: обновлен"
+          echo ""
+          echo "✅ КОММИТ ВЫПОЛНЕН УСПЕШНО!"
+          echo "🎉 Все файлы должны быть обновлены в репозитории"
+          
+      - name: ✅ Final Check
+        run: |
+          echo "=== ФИНАЛЬНАЯ ПРОВЕРКА ==="
+          echo "✅ Workflow выполнен успешно"
+          echo "🕐 Время: $(date)"
+          echo ""
+          echo "Если bloom_filter.bin всё ещё не обновляется,"
+          echo "проверьте настройки .gitattributes и .gitignore"
