@@ -285,11 +285,10 @@ echo "✅ blacklist.txt создан с заголовком"
 
 # 8. СОЗДАЕМ BLOOM-FILTER
 echo ""
-echo "🌺 СОЗДАЕМ BLOOM-FILTER..."
-echo "=========================="
+echo "🌺 СОЗДАЕМ BLOOM-FILTER (СИНХРОНИЗИРОВАНО С JAVA)..."
+echo "=================================================="
 
 python3 << 'BLOOM_EOF'
-import struct
 import math
 import sys
 import os
@@ -297,103 +296,51 @@ from bitarray import bitarray
 
 try:
     import mmh3
-    MMH3_AVAILABLE = True
 except ImportError:
-    print("❌ ОШИБКА: Библиотека mmh3 не установлена!")
+    print("❌ ОШИБКА: mmh3 не установлена!")
     sys.exit(1)
 
-print("=== СОЗДАНИЕ BLOOM-FILTER ===")
-
-# 1. Читаем ВСЕ домены ИЗ filtered_clean.txt (без комментариев)
-print("📖 Чтение доменов из filtered_clean.txt...")
+# 1. Читаем домены
 with open('filtered_clean.txt', 'r', encoding='utf-8') as f:
-    domains = []
-    line_count = 0
-    for line in f:
-        line_count += 1
-        domain = line.strip()
-        if domain and not domain.startswith('#'):  # Пропускаем комментарии и пустые строки
-            domains.append(domain)
-    
-print(f"📊 Обработано строк: {line_count:,}")
-print(f"📊 Валидных доменов: {len(domains):,}")
+    domains = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-# 2. Проверка на пустоту
-if len(domains) == 0:
-    print("❌ ОШИБКА: Нет доменов для обработки!")
-    print("Первые 5 строк filtered_clean.txt:")
-    with open('filtered_clean.txt', 'r') as f:
-        for i in range(5):
-            print(f"  {i+1}: {f.readline().strip()}")
+n = len(domains)
+if n == 0:
+    print("❌ ОШИБКА: Список доменов пуст!")
     sys.exit(1)
 
-# 3. Параметры Bloom-фильтра
-n = len(domains)
-false_positive_rate = 0.005  # Более строгая вероятность
-
+# 2. Расчет параметров (m и k)
+# Используем те же константы, что и в Java для стабильности
+false_positive_rate = 0.005
 m = -int((n * math.log(false_positive_rate)) / (math.log(2) ** 2))
 k = int((m / n) * math.log(2))
+
+# Округляем m до ближайшего байта (кратно 8)
 m = ((m + 7) // 8) * 8
 
-print(f"🔧 Параметры Bloom-фильтра:")
-print(f"   • Элементов (n): {n:,}")
-print(f"   • Размер битового массива (m): {m:,} бит ({m//8:,} байт)")
-print(f"   • Хэш-функций (k): {k}")
-print(f"   • Ожидаемые ложные срабатывания: {false_positive_rate*100:.2f}%")
+print(f"🔧 Параметры: n={n}, m={m} bits ({m//8} bytes), k={k}")
 
-# 4. Создаем и заполняем фильтр
-print("\n⚙️  Заполняем Bloom-фильтр...")
+# 3. Создание битового массива
 bit_array = bitarray(m)
 bit_array.setall(0)
 
-processed = 0
+# 4. Заполнение (ВАЖНО: Логика как в Java)
+print("⚙️ Заполнение...")
 for domain in domains:
     for seed in range(k):
-        hash_val = mmh3.hash(domain, seed) % m
-        bit_array[hash_val] = 1
-    
-    processed += 1
-    if processed % 50000 == 0:
-        print(f"   Обработано: {processed:,}/{n:,}")
+        # mmh3.hash выдает 32-битное знаковое число
+        h = mmh3.hash(domain, seed, signed=True)
+        # Имитируем (h & 0x7FFFFFFF) % m из Java
+        index = (h & 0x7FFFFFFF) % m
+        bit_array[index] = 1
 
-# 5. Сохраняем в НАШЕМ ФОРМАТЕ
-print("\n💾 Сохраняем bloom_filter.bin...")
+# 5. Сохранение (БЕЗ ЗАГОЛОВКА - только сырые байты)
 output_file = 'bloom_filter.bin'
 with open(output_file, 'wb') as f:
-    f.write(struct.pack('<I', 0x424C4F4D))
-    f.write(struct.pack('<I', 1))
-    f.write(struct.pack('<I', m))
-    f.write(struct.pack('<I', k))
-    f.write(struct.pack('<I', n))
-    bit_array.tofile(f)
+    # Записываем только саму маску битов
+    f.write(bit_array.tobytes())
 
-# 6. Проверяем созданный файл
-file_size = os.path.getsize(output_file)
-print(f"\n✅ Bloom-фильтр создан!")
-print(f"📏 Размер файла: {file_size:,} байт ({file_size/1024/1024:.2f} MB)")
-
-# 7. Тестовые проверки фильтра
-print("\n🔍 Тестовые проверки фильтра:")
-test_domains = [
-    "google.com",           # Должно быть разрешено
-    "youtube.com",          # Должно быть разрешено
-    "example-porn-site.com", # Должно быть заблокировано (если есть в списке)
-    "casino-example.com",   # Должно быть заблокировано
-    "drugs-example.com",    # Должно быть заблокировано
-]
-
-for test_domain in test_domains:
-    found = False
-    for seed in range(k):
-        hash_val = mmh3.hash(test_domain, seed) % m
-        if not bit_array[hash_val]:
-            break
-    else:
-        found = True
-    
-    status = "🟡 ВОЗМОЖНО" if found else "✅ НЕТ"
-    print(f"   {status} {test_domain}")
-
+print(f"✅ Файл {output_file} создан. Размер: {os.path.getsize(output_file)} байт")
 BLOOM_EOF
 
 # 9. СОЗДАЕМ/ОБНОВЛЯЕМ README
