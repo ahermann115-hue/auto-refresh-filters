@@ -138,6 +138,8 @@ echo "🔍 Применяем whitelist..."
 
 # Создаем расширенный whitelist
 cat > whitelist_expanded.txt << 'WHITELIST_EXP_EOF'
+unir.net
+graduacion.unir.net
 autorefresh.se
 *.autorefresh.se
 google.com
