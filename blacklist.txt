@@ -1,6 +1,6 @@
 # AutoRefresh Content Filter - Complete Blacklist
-# Generated: Sun Jun 28 02:58:08 UTC 2026
-# Total domains: 617332
+# Generated: Mon Jun 29 02:59:08 UTC 2026
+# Total domains: 617324
 # Sources:
 # 1. StevenBlack/hosts (fakenews-gambling-porn)
 # 2. StevenBlack/hosts (base with malware)
@@ -123161,7 +123161,6 @@ download.kapook.com
 download.kazaa.com
 download.kbstar.com
 download.kingtranslate.com
-download.komputerswiat.pl
 download.koyotesoft.com
 download.kr-mission.com
 download.ktqooksearch.co.kr
@@ -153649,7 +153648,6 @@ forum.meinskype.de
 forum.mena.cz
 forum.mysolar.ro
 forum.oneclickchicks.com
-forum.pclab.pl
 forum.phun.org
 forum.picbaron.com
 forum.platinashop.com
@@ -202013,7 +202011,6 @@ isportbet.net
 isportes.com
 isportskids.com
 ispot.tv
-isprambiente.gov.it
 isprime.com
 ispysoft.com
 ispytanie.savel.ru
@@ -216589,7 +216586,6 @@ kompoz2.com
 kompresoruremonts.lv
 komputer.birayang.com
 komputersaya.com
-komputerswiat.pl
 komqezsarmentose.download
 komsuciftlikcharles.blogspot.com
 komsupeynirdukkani.com
@@ -243142,7 +243138,6 @@ miaokasi.top
 miaomedia.com
 miaoqiling.com
 miaozhen.com
-miarroba.com
 miarun.ru
 miasslerof.net
 miasslerof.us
@@ -452536,7 +452531,6 @@ drucillcecilia.ru
 drucker-tankstation-ebersberg.de
 drudai.com
 drug-24.com
-drug-infopool.de
 drug-rx-pharmacy.org
 drug-screen.com
 drug-store-24h.com
@@ -488329,7 +488323,6 @@ ispneyry.webtoptrusta.su
 isponsorki.pl
 isportbet.net
 isportes.com
-isprambiente.gov.it
 ispysoft.com
 ispytanie.savel.ru
 isqvf.com
@@ -495843,7 +495836,6 @@ komponententechnik.com
 kompostube.com
 kompresoruremonts.lv
 komputer.birayang.com
-komputerswiat.pl
 komqezsarmentose.download
 komsuciftlikcharles.blogspot.com
 komsupeynirdukkani.com
