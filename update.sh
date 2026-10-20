@@ -285,6 +285,13 @@ HEADER_EOF
 cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
 
+# === ДОБАВЛЕНИЕ ДЛЯ PRO-ВЕРСИИ ===
+echo "✂️ Создаем облегченный список для Pro (только Malware, реклама и трекеры)..."
+grep -iE "malware|adware|track|phish|spam" filtered_clean.txt > filtered_pro_clean.txt || touch filtered_pro_clean.txt
+PRO_DOMAIN_COUNT=$(wc -l < filtered_pro_clean.txt)
+echo "✅ filtered_pro_clean.txt: $PRO_DOMAIN_COUNT доменов"
+# =================================
+
 # 8. СОЗДАЕМ BLOOM-FILTER
 echo ""
 echo "🌺 СОЗДАЕМ BLOOM-FILTER (СИНХРОНИЗИРОВАНО С JAVA)..."
@@ -336,13 +343,32 @@ for domain in domains:
         index = (h & 0x7FFFFFFF) % m
         bit_array[index] = 1
 
-# 5. Сохранение (БЕЗ ЗАГОЛОВКА - только сырые байты)
-output_file = 'bloom_filter.bin'
-with open(output_file, 'wb') as f:
-    # Записываем только саму маску битов
+# 5. Сохранение Free-версии (полный фильтр)
+with open('bloom_filter.bin', 'wb') as f:
     f.write(bit_array.tobytes())
+print(f"✅ Файл bloom_filter.bin создан. Размер: {os.path.getsize('bloom_filter.bin')} байт")
 
-print(f"✅ Файл {output_file} создан. Размер: {os.path.getsize(output_file)} байт")
+# 5.1. Генерация и сохранение Pro-версии (легкий фильтр)
+if os.path.exists('filtered_pro_clean.txt') and os.path.getsize('filtered_pro_clean.txt') > 0:
+    with open('filtered_pro_clean.txt', 'r', encoding='utf-8') as pf:
+        pro_domains = [line.strip() for line in pf if line.strip()]
+    
+    n_pro = len(pro_domains)
+    m_pro = -int((n_pro * math.log(0.005)) / (math.log(2) ** 2))
+    m_pro = ((m_pro + 7) // 8) * 8
+    k_pro = int((m_pro / n_pro) * math.log(2)) if n_pro > 0 else 1
+    
+    bit_array_pro = bitarray(m_pro)
+    bit_array_pro.setall(0)
+    
+    for domain in pro_domains:
+        for seed in range(k_pro):
+            h = mmh3.hash(domain, seed, signed=True)
+            bit_array_pro[(h & 0x7FFFFFFF) % m_pro] = 1
+            
+    with open('bloom_filter_pro.bin', 'wb') as pf_out:
+        pf_out.write(bit_array_pro.tobytes())
+    print(f"✅ Файл bloom_filter_pro.bin создан. Размер: {os.path.getsize('bloom_filter_pro.bin')} байт")
 BLOOM_EOF
 
 # 9. СОЗДАЕМ/ОБНОВЛЯЕМ README
@@ -425,7 +451,7 @@ TEMP_FILES="raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
             raw_combined.txt raw1_backup.txt raw2_backup.txt raw3_backup.txt
             raw4_backup.txt raw5_backup.txt raw_combined_backup.txt
             domains.txt domains_normalized.txt whitelist_expanded.txt
-            filtered.txt filtered_clean.txt"
+            filtered.txt filtered_clean.txt filtered_pro_clean.txt""
 
 for file in $TEMP_FILES; do
     if [ -f "$file" ]; then
@@ -441,7 +467,7 @@ echo ""
 echo "🔍 ФИНАЛЬНАЯ ПРОВЕРКА СОЗДАННЫХ ФАЙЛОВ:"
 echo "========================================"
 
-FINAL_FILES=("bloom_filter.bin" "blacklist.txt" "README.md")
+FINAL_FILES=("bloom_filter.bin" "bloom_filter_pro.bin" "blacklist.txt" "README.md")
 ALL_OK=true
 
 for file in "${FINAL_FILES[@]}"; do
