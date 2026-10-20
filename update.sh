@@ -286,11 +286,9 @@ cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
 
 # === ДОБАВЛЕНИЕ ДЛЯ PRO-ВЕРСИИ ===
-echo "✂️ Создаем список для Pro (только реклама, трекеры и Malware)..."
-
-# Берем обработанные домены StevenBlack (в них как раз реклама и malware) и фильтруем через whitelist
-grep -v -F -f whitelist_expanded.txt domains_stevenblack.txt | sed 's/^www\.//' | sort -u > filtered_pro_clean.txt || touch filtered_pro_clean.txt
-
+echo "✂️ Создаем облегченный список для Pro (только Malware и трекеры/реклама)..."
+# Берем строки из уже готового filtered_clean.txt и фильтруем по ключевым словам рекламы/malware
+grep -iE "ad|ads|tracker|trackers|analytics|malware|phish|popup|banner" filtered_clean.txt > filtered_pro_clean.txt || touch filtered_pro_clean.txt
 PRO_DOMAIN_COUNT=$(wc -l < filtered_pro_clean.txt)
 echo "✅ filtered_pro_clean.txt: $PRO_DOMAIN_COUNT доменов"
 # =================================
