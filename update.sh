@@ -263,6 +263,15 @@ fi
 DOMAIN_COUNT=$(wc -l < filtered_clean.txt)
 echo "✅ filtered_clean.txt: $DOMAIN_COUNT доменов (для Bloom filter)"
 
+
+# === ДОБАВЛЕНИЕ ДЛЯ PRO-ВЕРСИИ ===
+echo "✂️ Создаем облегченный список для Pro (только Malware и трекеры/реклама)..."
+# Берем строки из уже готового filtered_clean.txt и фильтруем по ключевым словам рекламы/malware
+grep -iE "ad|ads|tracker|trackers|analytics|malware|phish|popup|banner" filtered_clean.txt > filtered_pro_clean.txt || touch filtered_pro_clean.txt
+PRO_DOMAIN_COUNT=$(wc -l < filtered_pro_clean.txt)
+echo "✅ filtered_pro_clean.txt: $PRO_DOMAIN_COUNT доменов"
+# =================================
+
 # 7b. blacklist.txt - С комментариями (для людей)
 cat > blacklist.txt << HEADER_EOF
 # AutoRefresh Content Filter - Complete Blacklist
@@ -285,13 +294,6 @@ HEADER_EOF
 cat filtered_clean.txt >> blacklist.txt
 echo "✅ blacklist.txt создан с заголовком"
 
-# === ДОБАВЛЕНИЕ ДЛЯ PRO-ВЕРСИИ ===
-echo "✂️ Создаем облегченный список для Pro (только Malware и трекеры/реклама)..."
-# Берем строки из уже готового filtered_clean.txt и фильтруем по ключевым словам рекламы/malware
-grep -iE "ad|ads|tracker|trackers|analytics|malware|phish|popup|banner" filtered_clean.txt > filtered_pro_clean.txt || touch filtered_pro_clean.txt
-PRO_DOMAIN_COUNT=$(wc -l < filtered_pro_clean.txt)
-echo "✅ filtered_pro_clean.txt: $PRO_DOMAIN_COUNT доменов"
-# =================================
 
 # 8. СОЗДАЕМ BLOOM-FILTER
 echo ""
