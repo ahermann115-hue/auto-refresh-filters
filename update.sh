@@ -354,24 +354,32 @@ print(f"✅ Файл bloom_filter.bin создан. Размер: {os.path.getsi
 # 5.1. Генерация и сохранение Pro-версии (легкий фильтр)
 if os.path.exists('filtered_pro_clean.txt') and os.path.getsize('filtered_pro_clean.txt') > 0:
     with open('filtered_pro_clean.txt', 'r', encoding='utf-8') as pf:
-        pro_domains = [line.strip() for line in pf if line.strip()]
+        pro_domains = [line.strip() for line in pf if line.strip() and not line.startswith('#')]
     
     n_pro = len(pro_domains)
-    m_pro = -int((n_pro * math.log(0.005)) / (math.log(2) ** 2))
-    m_pro = ((m_pro + 7) // 8) * 8
-    k_pro = int((m_pro / n_pro) * math.log(2)) if n_pro > 0 else 1
-    
-    bit_array_pro = bitarray(m_pro)
-    bit_array_pro.setall(0)
-    
-    for domain in pro_domains:
-        for seed in range(k_pro):
-            h = mmh3.hash(domain, seed, signed=True)
-            bit_array_pro[(h & 0x7FFFFFFF) % m_pro] = 1
-            
-    with open('bloom_filter_pro.bin', 'wb') as pf_out:
-        pf_out.write(bit_array_pro.tobytes())
-    print(f"✅ Файл bloom_filter_pro.bin создан. Размер: {os.path.getsize('bloom_filter_pro.bin')} байт")
+    if n_pro > 0:
+        m_pro = -int((n_pro * math.log(false_positive_rate)) / (math.log(2) ** 2))
+        m_pro = ((m_pro + 7) // 8) * 8
+        k_pro = int((m_pro / n_pro) * math.log(2))
+        
+        print(f"🔧 Параметры Pro: n={n_pro}, m={m_pro} bits ({m_pro//8} bytes), k={k_pro}")
+        
+        bit_array_pro = bitarray(m_pro)
+        bit_array_pro.setall(0)
+        
+        for domain in pro_domains:
+            for seed in range(k_pro):
+                h = mmh3.hash(domain, seed, signed=True)
+                index = (h & 0x7FFFFFFF) % m_pro
+                bit_array_pro[index] = 1
+                
+        with open('bloom_filter_pro.bin', 'wb') as pf_out:
+            pf_out.write(bit_array_pro.tobytes())
+        print(f"✅ Файл bloom_filter_pro.bin создан. Размер: {os.path.getsize('bloom_filter_pro.bin')} байт (доменов: {n_pro})")
+    else:
+        print("⚠️ Список pro_domains пуст!")
+else:
+    print("⚠️ filtered_pro_clean.txt не найден или пуст!")
 BLOOM_EOF
 
 # 9. СОЗДАЕМ/ОБНОВЛЯЕМ README
