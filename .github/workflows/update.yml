@@ -120,7 +120,7 @@ jobs:
           echo "➕ Добавляем файлы в git..."
           git add bloom_filter.bin bloom_filter_pro.bin blacklist.txt README.md
           
-          # 6. Проверяем что bloom_filter.bin добавлен
+          # 6. Проверяем что файлы добавлены
           echo ""
           echo "🔍 Проверяем статус файлов:"
           git status --porcelain | while read status file; do
