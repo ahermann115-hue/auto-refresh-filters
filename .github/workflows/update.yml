@@ -118,7 +118,7 @@ jobs:
           # 5. Добавляем ВСЕ основные файлы
           echo ""
           echo "➕ Добавляем файлы в git..."
-          git add bloom_filter.bin blacklist.txt README.md
+          git add bloom_filter.bin bloom_filter_pro.bin blacklist.txt README.md
           
           # 6. Проверяем что bloom_filter.bin добавлен
           echo ""
