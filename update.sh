@@ -451,7 +451,7 @@ TEMP_FILES="raw1.txt raw2.txt raw3_drugs.txt raw4_weapons.txt raw5_violence.txt
             raw_combined.txt raw1_backup.txt raw2_backup.txt raw3_backup.txt
             raw4_backup.txt raw5_backup.txt raw_combined_backup.txt
             domains.txt domains_normalized.txt whitelist_expanded.txt
-            filtered.txt filtered_clean.txt filtered_pro_clean.txt""
+            filtered.txt filtered_clean.txt filtered_pro_clean.txt"
 
 for file in $TEMP_FILES; do
     if [ -f "$file" ]; then
