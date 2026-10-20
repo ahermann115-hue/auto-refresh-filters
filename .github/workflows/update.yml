@@ -126,6 +126,8 @@ jobs:
           git status --porcelain | while read status file; do
             if [ "$file" = "bloom_filter.bin" ]; then
               echo "   ✅ bloom_filter.bin: $status"
+            elif [ "$file" = "bloom_filter_pro.bin" ]; then
+              echo "   ✅ bloom_filter_pro.bin: $status"
             elif [ "$file" = "blacklist.txt" ]; then
               echo "   ✅ blacklist.txt: $status"
             elif [ "$file" = "README.md" ]; then
