@@ -113,7 +113,7 @@ jobs:
           fi
           
           # 4. Удаляем bloom_filter.bin из git и добавляем заново
-          git rm --cached bloom_filter.bin 2>/dev/null || true
+          # git rm --cached bloom_filter.bin 2>/dev/null || true
           
           # 5. Добавляем ВСЕ основные файлы
           echo ""
@@ -144,12 +144,15 @@ jobs:
           DATE=$(date +'%Y-%m-%d')
           DOMAIN_COUNT=$(grep -v '^#' blacklist.txt | grep -c '\.' 2>/dev/null || echo "0")
           BLOOM_SIZE=$(stat -c%s bloom_filter.bin 2>/dev/null || echo "0")
+          PRO_SIZE=$(stat -c%s bloom_filter_pro.bin 2>/dev/null || echo "0")
           BLOOM_SIZE_KB=$((BLOOM_SIZE / 1024))
+          PRO_SIZE_KB=$((PRO_SIZE / 1024))
           
           echo "📊 Статистика:"
           echo "   • Дата: $DATE"
           echo "   • Доменов: $DOMAIN_COUNT"
-          echo "   • Размер фильтра: $BLOOM_SIZE_KB KB"
+          echo "   • Free фильтр: $BLOOM_SIZE_KB KB"
+          echo "   • Pro фильтр: $PRO_SIZE_KB KB"
           
           # Проверяем есть ли изменения
           if git diff --cached --quiet; then
@@ -167,7 +170,7 @@ jobs:
               git commit -m "Update timestamp - $(date +'%Y-%m-%d %H:%M')"
             fi
           else
-            COMMIT_MSG="Auto update ${DATE} - ${DOMAIN_COUNT} domains, ${BLOOM_SIZE_KB} KB filter"
+            COMMIT_MSG="Auto update ${DATE} - ${DOMAIN_COUNT} domains, free: ${BLOOM_SIZE_KB} KB, pro: ${PRO_SIZE_KB} KB"
             echo "📝 Коммит: $COMMIT_MSG"
             git commit -m "$COMMIT_MSG"
           fi
