@@ -1,5 +1,5 @@
 # AutoRefresh Content Filter - Complete Blacklist
-# Generated: Sat Oct 24 03:00:25 UTC 2026
+# Generated: Sun Oct 25 02:53:43 UTC 2026
 # Total domains: 605935
 # Sources:
 # 1. StevenBlack/hosts (fakenews-gambling-porn)
